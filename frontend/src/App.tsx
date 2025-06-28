@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/pages/Dashboard';
@@ -7,35 +8,24 @@ import { Clients } from './components/pages/Clients';
 import { Reports } from './components/pages/Reports';
 import { Settings } from './components/pages/Settings';
 
-export type PageType = 'dashboard' | 'invoices' | 'clients' | 'reports' | 'settings';
-
 function App() {
-  const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
-
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'invoices':
-        return <Invoices />;
-      case 'clients':
-        return <Clients />;
-      case 'reports':
-        return <Reports />;
-      case 'settings':
-        return <Settings />;
-      default:
-        return <Dashboard />;
-    }
-  };
-
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 transition-all duration-500">
-        <Layout currentPage={currentPage} onPageChange={setCurrentPage}>
-          {renderPage()}
-        </Layout>
-      </div>
+      <Router>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 transition-all duration-500">
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/invoices" element={<Invoices />} />
+              <Route path="/clients" element={<Clients />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </Layout>
+        </div>
+      </Router>
     </ThemeProvider>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { 
   BarChart3, 
@@ -12,31 +13,44 @@ import {
   Moon,
   Zap
 } from 'lucide-react';
-import type { PageType } from '../App';
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentPage: PageType;
-  onPageChange: (page: PageType) => void;
 }
 
 interface NavItem {
-  id: PageType;
+  id: string;
   label: string;
   icon: React.ReactNode;
+  path: string;
 }
 
 const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-5 h-5" /> },
-  { id: 'invoices', label: 'Invoices', icon: <FileText className="w-5 h-5" /> },
-  { id: 'clients', label: 'Clients', icon: <Users className="w-5 h-5" /> },
-  { id: 'reports', label: 'Reports', icon: <TrendingUp className="w-5 h-5" /> },
-  { id: 'settings', label: 'Settings', icon: <SettingsIcon className="w-5 h-5" /> },
+  { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 className="w-5 h-5" />, path: '/dashboard' },
+  { id: 'invoices', label: 'Invoices', icon: <FileText className="w-5 h-5" />, path: '/invoices' },
+  { id: 'clients', label: 'Clients', icon: <Users className="w-5 h-5" />, path: '/clients' },
+  { id: 'reports', label: 'Reports', icon: <TrendingUp className="w-5 h-5" />, path: '/reports' },
+  { id: 'settings', label: 'Settings', icon: <SettingsIcon className="w-5 h-5" />, path: '/settings' },
 ];
 
-export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onPageChange }) => {
+export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const getCurrentPage = () => {
+    const currentPath = location.pathname;
+    const currentItem = navItems.find(item => item.path === currentPath);
+    return currentItem?.id || 'dashboard';
+  };
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    setSidebarOpen(false);
+  };
+
+  const currentPage = getCurrentPage();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -74,10 +88,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage, onPageCha
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => {
-                  onPageChange(item.id);
-                  setSidebarOpen(false);
-                }}
+                onClick={() => handleNavigation(item.path)}
                 className={`
                   w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-200
                   ${currentPage === item.id
