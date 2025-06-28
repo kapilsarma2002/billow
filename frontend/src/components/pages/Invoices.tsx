@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Invoice } from '../../types/index'
 import axios from 'axios';
-import { Search, Filter, Upload, Download, Plus, Calendar, DollarSign, User, FileText } from 'lucide-react';
+import { Search, Filter, Upload, Download, Plus, Calendar, DollarSign, User, FileText, X, SlidersHorizontal } from 'lucide-react';
 
 interface NewInvoice {
   client: string;
@@ -15,11 +15,20 @@ interface NewInvoice {
   due_date: string;
 }
 
+interface SearchFilters {
+  searchTerm: string;
+  status: 'all' | 'paid' | 'unpaid' | 'overdue' | 'processing';
+  currency: string;
+  dateFrom: string;
+  dateTo: string;
+  amountMin: string;
+  amountMax: string;
+}
+
 export const Invoices: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid' | 'overdue' | 'processing'>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [newInvoice, setNewInvoice] = useState<NewInvoice>({
     client: '',
@@ -28,6 +37,16 @@ export const Invoices: React.FC = () => {
     currency_type: 'USD',
     status: 'unpaid',
     due_date: ''
+  });
+
+  const [filters, setFilters] = useState<SearchFilters>({
+    searchTerm: '',
+    status: 'all',
+    currency: 'all',
+    dateFrom: '',
+    dateTo: '',
+    amountMin: '',
+    amountMax: ''
   });
 
   useEffect(() => {
@@ -46,12 +65,57 @@ export const Invoices: React.FC = () => {
     getInvoices();
   }, []);
 
+  // Enhanced filtering logic
   const filteredInvoices = invoices.filter(invoice => {
-    const matchesSearch = invoice.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invoice.id.toString().toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    // Text search - searches in client name and invoice ID
+    const matchesSearch = filters.searchTerm === '' || 
+      invoice.client.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+      invoice.id.toString().toLowerCase().includes(filters.searchTerm.toLowerCase());
+
+    // Status filter
+    const matchesStatus = filters.status === 'all' || invoice.status === filters.status;
+
+    // Currency filter
+    const matchesCurrency = filters.currency === 'all' || 
+      invoice.currency_type === filters.currency ||
+      (!invoice.currency_type && filters.currency === 'USD'); // Default to USD if no currency
+
+    // Date range filter (invoice date)
+    const matchesDateRange = (() => {
+      if (!filters.dateFrom && !filters.dateTo) return true;
+      if (!invoice.invoice_date) return false;
+      
+      const invoiceDate = new Date(invoice.invoice_date);
+      const fromDate = filters.dateFrom ? new Date(filters.dateFrom) : null;
+      const toDate = filters.dateTo ? new Date(filters.dateTo) : null;
+
+      if (fromDate && toDate) {
+        return invoiceDate >= fromDate && invoiceDate <= toDate;
+      } else if (fromDate) {
+        return invoiceDate >= fromDate;
+      } else if (toDate) {
+        return invoiceDate <= toDate;
+      }
+      return true;
+    })();
+
+    // Amount range filter
+    const matchesAmountRange = (() => {
+      if (!filters.amountMin && !filters.amountMax) return true;
+      
+      const minAmount = filters.amountMin ? parseFloat(filters.amountMin) : 0;
+      const maxAmount = filters.amountMax ? parseFloat(filters.amountMax) : Infinity;
+
+      return invoice.amount >= minAmount && invoice.amount <= maxAmount;
+    })();
+
+    return matchesSearch && matchesStatus && matchesCurrency && matchesDateRange && matchesAmountRange;
   });
+
+  // Get unique currencies from invoices for filter dropdown
+  const availableCurrencies = Array.from(new Set(
+    invoices.map(invoice => invoice.currency_type || 'USD').filter(Boolean)
+  )).sort();
 
   const formatCurrency = (amount: number, currency_type: string) => 
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: `${currency_type}`, maximumFractionDigits: 0 }).format(amount);
@@ -82,6 +146,35 @@ export const Invoices: React.FC = () => {
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleFilterChange = (field: keyof SearchFilters, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      searchTerm: '',
+      status: 'all',
+      currency: 'all',
+      dateFrom: '',
+      dateTo: '',
+      amountMin: '',
+      amountMax: ''
+    });
+  };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (filters.searchTerm) count++;
+    if (filters.status !== 'all') count++;
+    if (filters.currency !== 'all') count++;
+    if (filters.dateFrom || filters.dateTo) count++;
+    if (filters.amountMin || filters.amountMax) count++;
+    return count;
   };
 
   const handleSubmit = async () => {
@@ -134,7 +227,9 @@ export const Invoices: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Invoices</h1>
-          <p className="text-gray-600 dark:text-gray-400">Manage and track all your invoices</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            Manage and track all your invoices • {filteredInvoices.length} of {invoices.length} invoices
+          </p>
         </div>
         <div className="flex space-x-3">
           <Button variant="secondary">
@@ -148,33 +243,136 @@ export const Invoices: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Enhanced Search and Filters */}
       <Card className="p-6" variant="glass">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search invoices..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            />
+        <div className="space-y-4">
+          {/* Main search bar */}
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search by client name or invoice ID..."
+                value={filters.searchTerm}
+                onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              />
+              {filters.searchTerm && (
+                <button
+                  onClick={() => handleFilterChange('searchTerm', '')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            
+            {/* Quick filters */}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Filter className="text-gray-400 w-5 h-5" />
+                <select
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                  className="px-3 py-3 bg-white dark:bg-gray-800 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="all">All Status</option>
+                  <option value="paid">Paid</option>
+                  <option value="unpaid">Unpaid</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="processing">Processing</option>
+                </select>
+              </div>
+
+              <Button
+                variant="secondary"
+                onClick={() => setIsFilterModalOpen(true)}
+                className="relative"
+              >
+                <SlidersHorizontal className="w-4 h-4 mr-2" />
+                Advanced Filters
+                {getActiveFilterCount() > 0 && (
+                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center">
+                    {getActiveFilterCount()}
+                  </span>
+                )}
+              </Button>
+
+              {getActiveFilterCount() > 0 && (
+                <Button variant="ghost" onClick={clearFilters}>
+                  <X className="w-4 h-4 mr-2" />
+                  Clear All
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <Filter className="text-gray-400 w-5 h-5" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-2 py-3 bg-white dark:bg-gray-800 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            >
-              <option value="all">All Status</option>
-              <option value="paid">Paid</option>
-              <option value="unpaid">Unpaid</option>
-              <option value="overdue">Overdue</option>
-              <option value="processing">Processing</option>
-            </select>
-          </div>
+
+          {/* Active filters display */}
+          {getActiveFilterCount() > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {filters.searchTerm && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                  Search: "{filters.searchTerm}"
+                  <button
+                    onClick={() => handleFilterChange('searchTerm', '')}
+                    className="ml-2 hover:text-blue-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {filters.status !== 'all' && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                  Status: {filters.status}
+                  <button
+                    onClick={() => handleFilterChange('status', 'all')}
+                    className="ml-2 hover:text-emerald-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {filters.currency !== 'all' && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                  Currency: {filters.currency}
+                  <button
+                    onClick={() => handleFilterChange('currency', 'all')}
+                    className="ml-2 hover:text-purple-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {(filters.dateFrom || filters.dateTo) && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
+                  Date Range
+                  <button
+                    onClick={() => {
+                      handleFilterChange('dateFrom', '');
+                      handleFilterChange('dateTo', '');
+                    }}
+                    className="ml-2 hover:text-orange-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {(filters.amountMin || filters.amountMax) && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400">
+                  Amount Range
+                  <button
+                    onClick={() => {
+                      handleFilterChange('amountMin', '');
+                      handleFilterChange('amountMax', '');
+                    }}
+                    className="ml-2 hover:text-indigo-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </Card>
 
@@ -194,53 +392,209 @@ export const Invoices: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredInvoices.map((invoice, index) => (
-                <tr 
-                  key={invoice.id}
-                  className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-all duration-200 group"
-                >
-                  <td className="py-4 px-6">
-                    <span className="font-medium text-blue-600 dark:text-blue-400">{invoice.id}</span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <span className="text-gray-700 dark:text-gray-300">{formatDate(invoice.invoice_date)}</span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-sm">
-                        {invoice.client.charAt(0)}
-                      </div>
-                      <span className="font-medium text-gray-900 dark:text-white">{invoice.client}</span>
+              {filteredInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center">
+                    <div className="flex flex-col items-center space-y-3">
+                      <Search className="w-12 h-12 text-gray-400" />
+                      <p className="text-gray-500 dark:text-gray-400">
+                        {invoices.length === 0 ? 'No invoices found' : 'No invoices match your search criteria'}
+                      </p>
+                      {getActiveFilterCount() > 0 && (
+                        <Button variant="ghost" onClick={clearFilters}>
+                          Clear filters
+                        </Button>
+                      )}
                     </div>
                   </td>
-                  <td className="py-4 px-6">
-                    <span className="font-semibold text-gray-900 dark:text-white">
-                      {invoice.currency_type ? formatCurrency(invoice.amount, invoice.currency_type) : `$${invoice.amount}`}
-                    </span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <span className={getStatusBadge(invoice.status)}>
-                      {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <span className="text-gray-600 dark:text-gray-400">{formatDate(invoice.due_date)}</span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="opacity-0 group-hover:opacity-100 transition-all duration-200"
-                    >
-                      <Download className="w-4 h-4" />
-                    </Button>
-                  </td>
                 </tr>
-              ))}
+              ) : (
+                filteredInvoices.map((invoice, index) => (
+                  <tr 
+                    key={invoice.id}
+                    className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-all duration-200 group"
+                  >
+                    <td className="py-4 px-6">
+                      <span className="font-medium text-blue-600 dark:text-blue-400">{invoice.id}</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="text-gray-700 dark:text-gray-300">{formatDate(invoice.invoice_date)}</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-sm">
+                          {invoice.client.charAt(0)}
+                        </div>
+                        <span className="font-medium text-gray-900 dark:text-white">{invoice.client}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {invoice.currency_type ? formatCurrency(invoice.amount, invoice.currency_type) : `$${invoice.amount}`}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className={getStatusBadge(invoice.status)}>
+                        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className="text-gray-600 dark:text-gray-400">{formatDate(invoice.due_date)}</span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="opacity-0 group-hover:opacity-100 transition-all duration-200"
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </Card>
+
+      {/* Advanced Filters Modal */}
+      <Modal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        title="Advanced Filters"
+        size="lg"
+      >
+        <div className="space-y-6">
+          {/* Header with gradient */}
+          <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-blue-200/50 dark:border-blue-500/20">
+            <div className="flex items-center space-x-3">
+              <div className="p-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg">
+                <SlidersHorizontal className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Filter Options</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Refine your search with advanced criteria</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Currency Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Currency
+              </label>
+              <select
+                value={filters.currency}
+                onChange={(e) => handleFilterChange('currency', e.target.value)}
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+                <option value="all">All Currencies</option>
+                {availableCurrencies.map(currency => (
+                  <option key={currency} value={currency}>{currency}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Status
+              </label>
+              <select
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+                <option value="all">All Status</option>
+                <option value="paid">Paid</option>
+                <option value="unpaid">Unpaid</option>
+                <option value="overdue">Overdue</option>
+                <option value="processing">Processing</option>
+              </select>
+            </div>
+
+            {/* Date From */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <Calendar className="w-4 h-4 inline mr-2" />
+                Date From
+              </label>
+              <input
+                type="date"
+                value={filters.dateFrom}
+                onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              />
+            </div>
+
+            {/* Date To */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <Calendar className="w-4 h-4 inline mr-2" />
+                Date To
+              </label>
+              <input
+                type="date"
+                value={filters.dateTo}
+                onChange={(e) => handleFilterChange('dateTo', e.target.value)}
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              />
+            </div>
+
+            {/* Amount Min */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <DollarSign className="w-4 h-4 inline mr-2" />
+                Minimum Amount
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={filters.amountMin}
+                onChange={(e) => handleFilterChange('amountMin', e.target.value)}
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="0.00"
+              />
+            </div>
+
+            {/* Amount Max */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <DollarSign className="w-4 h-4 inline mr-2" />
+                Maximum Amount
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={filters.amountMax}
+                onChange={(e) => handleFilterChange('amountMax', e.target.value)}
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
+            <Button variant="ghost" onClick={clearFilters}>
+              <X className="w-4 h-4 mr-2" />
+              Clear All Filters
+            </Button>
+            <div className="flex space-x-3">
+              <Button variant="secondary" onClick={() => setIsFilterModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="gradient" onClick={() => setIsFilterModalOpen(false)}>
+                Apply Filters
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       {/* Add Invoice Modal */}
       <Modal
