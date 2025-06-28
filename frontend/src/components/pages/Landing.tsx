@@ -19,8 +19,7 @@ import {
   Clock,
   Target,
   ChevronDown,
-  ChevronUp,
-  Play
+  ChevronUp
 } from 'lucide-react';
 
 export const Landing: React.FC = () => {
@@ -281,17 +280,16 @@ export const Landing: React.FC = () => {
                 variant="gradient" 
                 size="lg"
                 onClick={() => window.location.href = '/dashboard'}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto flex"
               >
                 Start Free Trial
-                <ArrowRight className="w-5 h-5 ml-2" />
+                <ArrowRight className="w-5 h-5 mt-0.5 ml-2" />
               </Button>
               <Button 
                 variant="secondary" 
                 size="lg"
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto flex"
               >
-                <Play className="w-5 h-5 mr-2" />
                 Watch Demo
               </Button>
             </div>
@@ -545,18 +543,18 @@ export const Landing: React.FC = () => {
               variant="secondary" 
               size="lg"
               onClick={() => window.location.href = '/dashboard'}
-              className="w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-100"
+              className="w-full flex sm:w-auto bg-white text-blue-600 hover:bg-gray-100"
             >
               Start Free Trial
-              <ArrowRight className="w-5 h-5 ml-2" />
+              <ArrowRight className="w-5 h-5 mt-0.5 ml-2" />
             </Button>
             <Button 
               variant="ghost" 
               size="lg"
-              className="w-full sm:w-auto text-white border-white hover:bg-white/10"
+              className="w-full sm:w-auto flex text-white border-white hover:bg-white/10"
             >
-              <Mail className="w-5 h-5 mr-2" />
-              Contact Sales
+              <Mail className="w-5 h-5 mr-2 mt-0.5" />
+              Contact
             </Button>
           </div>
 
