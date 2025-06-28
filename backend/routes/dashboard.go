@@ -14,6 +14,9 @@ func SetupDashboardRoutes(app *fiber.App) {
 	app.Get("/api/dashboard/revenue-chart", getRevenueChart)
 	app.Get("/api/dashboard/top-clients", getTopClients)
 	app.Get("/api/dashboard/recent-invoices", getRecentInvoices)
+	app.Get("/api/dashboard/reports-summary", getReportsSummary)
+	app.Get("/api/dashboard/collection-rate", getCollectionRate)
+	app.Get("/api/dashboard/top-revenue-month", getTopRevenueMonth)
 }
 
 // KPI Data structure
@@ -34,6 +37,17 @@ type RevenueChartData struct {
 type TopClientData struct {
 	Name    string  `json:"name"`
 	Revenue float64 `json:"revenue"`
+}
+
+// Reports Summary Data
+type ReportsSummaryData struct {
+	TotalRevenue     float64 `json:"total_revenue"`
+	CollectionRate   float64 `json:"collection_rate"`
+	TopClient        string  `json:"top_client"`
+	TopClientRevenue float64 `json:"top_client_revenue"`
+	TopRevenueMonth  string  `json:"top_revenue_month"`
+	ClientCount      int64   `json:"client_count"`
+	AveragePerClient float64 `json:"average_per_client"`
 }
 
 func getDashboardKPI(c *fiber.Ctx) error {
@@ -177,4 +191,147 @@ func getRecentInvoices(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(invoices)
+}
+
+func getReportsSummary(c *fiber.Ctx) error {
+	var summary ReportsSummaryData
+
+	// Get total revenue
+	config.DB.Model(&models.Invoice{}).Select("COALESCE(SUM(amount), 0)").Scan(&summary.TotalRevenue)
+
+	// Get total paid amount for collection rate
+	var totalPaid float64
+	config.DB.Model(&models.Invoice{}).Where("status = ?", "paid").Select("COALESCE(SUM(amount), 0)").Scan(&totalPaid)
+
+	// Calculate collection rate
+	if summary.TotalRevenue > 0 {
+		summary.CollectionRate = (totalPaid / summary.TotalRevenue) * 100
+	}
+
+	// Get client count
+	config.DB.Model(&models.Client{}).Count(&summary.ClientCount)
+
+	// Calculate average per client
+	if summary.ClientCount > 0 {
+		summary.AveragePerClient = summary.TotalRevenue / float64(summary.ClientCount)
+	}
+
+	// Get top client
+	var clients []models.Client
+	if err := config.DB.Find(&clients).Error; err == nil {
+		var topClient TopClientData
+		maxRevenue := 0.0
+
+		for _, client := range clients {
+			var totalRevenue float64
+			config.DB.Model(&models.Invoice{}).
+				Where("client_id = ? AND status = ?", client.ID, "paid").
+				Select("COALESCE(SUM(amount), 0)").
+				Scan(&totalRevenue)
+
+			if totalRevenue > maxRevenue {
+				maxRevenue = totalRevenue
+				topClient.Name = client.Name
+				topClient.Revenue = totalRevenue
+			}
+		}
+
+		summary.TopClient = topClient.Name
+		summary.TopClientRevenue = topClient.Revenue
+	}
+
+	// Get top revenue month
+	var invoices []models.Invoice
+	if err := config.DB.Where("status = ?", "paid").Find(&invoices).Error; err == nil {
+		monthlyRevenue := make(map[string]float64)
+		
+		for _, invoice := range invoices {
+			if invoice.InvoiceDate != "" {
+				if invoiceTime, err := time.Parse("2006-01-02", invoice.InvoiceDate); err == nil {
+					monthKey := invoiceTime.Format("2006-01")
+					monthlyRevenue[monthKey] += invoice.Amount
+				}
+			}
+		}
+
+		// Find the month with highest revenue
+		maxRevenue := 0.0
+		topMonth := ""
+		for month, revenue := range monthlyRevenue {
+			if revenue > maxRevenue {
+				maxRevenue = revenue
+				topMonth = month
+			}
+		}
+
+		if topMonth != "" {
+			if monthTime, err := time.Parse("2006-01", topMonth); err == nil {
+				summary.TopRevenueMonth = monthTime.Format("January 2006")
+			}
+		}
+	}
+
+	if summary.TopRevenueMonth == "" {
+		summary.TopRevenueMonth = "Current Month"
+	}
+
+	return c.JSON(summary)
+}
+
+func getCollectionRate(c *fiber.Ctx) error {
+	var totalInvoiced, totalPaid float64
+
+	config.DB.Model(&models.Invoice{}).Select("COALESCE(SUM(amount), 0)").Scan(&totalInvoiced)
+	config.DB.Model(&models.Invoice{}).Where("status = ?", "paid").Select("COALESCE(SUM(amount), 0)").Scan(&totalPaid)
+
+	collectionRate := 0.0
+	if totalInvoiced > 0 {
+		collectionRate = (totalPaid / totalInvoiced) * 100
+	}
+
+	return c.JSON(fiber.Map{
+		"collection_rate": collectionRate,
+		"total_invoiced":  totalInvoiced,
+		"total_paid":      totalPaid,
+	})
+}
+
+func getTopRevenueMonth(c *fiber.Ctx) error {
+	var invoices []models.Invoice
+	if err := config.DB.Where("status = ?", "paid").Find(&invoices).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch invoices"})
+	}
+
+	monthlyRevenue := make(map[string]float64)
+	
+	for _, invoice := range invoices {
+		if invoice.InvoiceDate != "" {
+			if invoiceTime, err := time.Parse("2006-01-02", invoice.InvoiceDate); err == nil {
+				monthKey := invoiceTime.Format("2006-01")
+				monthlyRevenue[monthKey] += invoice.Amount
+			}
+		}
+	}
+
+	// Find the month with highest revenue
+	maxRevenue := 0.0
+	topMonth := ""
+	for month, revenue := range monthlyRevenue {
+		if revenue > maxRevenue {
+			maxRevenue = revenue
+			topMonth = month
+		}
+	}
+
+	topMonthFormatted := "Current Month"
+	if topMonth != "" {
+		if monthTime, err := time.Parse("2006-01", topMonth); err == nil {
+			topMonthFormatted = monthTime.Format("January 2006")
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"top_month":       topMonthFormatted,
+		"top_month_revenue": maxRevenue,
+	})
 }
