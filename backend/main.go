@@ -26,8 +26,10 @@ func main() {
 		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
 	}))
 
+	// Setup all routes
 	routes.Setup(app)
 	routes.SetupClientRoutes(app)
+	routes.SetupDashboardRoutes(app)
 
 	app.Listen(":8080")
 }

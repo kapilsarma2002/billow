@@ -1,11 +1,61 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/Card';
-import { revenueData } from '../../utils/mockData';
+import axios from 'axios';
+
+interface RevenueData {
+  month: string;
+  revenue: number;
+}
 
 export const RevenueChart: React.FC = () => {
+  const [revenueData, setRevenueData] = useState<RevenueData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRevenueData = async () => {
+      try {
+        const response = await axios.get('http://localhost:8080/api/dashboard/revenue-chart');
+        setRevenueData(response.data || []);
+      } catch (error) {
+        console.error('Error fetching revenue data:', error);
+        // Fallback to empty data
+        setRevenueData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRevenueData();
+  }, []);
+
+  if (loading) {
+    return (
+      <Card className="p-6" variant="glass">
+        <div className="animate-pulse">
+          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-4 w-1/3"></div>
+          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
+        </div>
+      </Card>
+    );
+  }
+
+  if (revenueData.length === 0) {
+    return (
+      <Card className="p-6" variant="glass">
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Monthly Revenue</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Revenue trends over the past 12 months</p>
+        </div>
+        <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+          <p>No revenue data available</p>
+        </div>
+      </Card>
+    );
+  }
+
   const maxRevenue = Math.max(...revenueData.map(d => d.revenue));
   const minRevenue = Math.min(...revenueData.map(d => d.revenue));
-  const range = maxRevenue - minRevenue;
+  const range = maxRevenue - minRevenue || 1;
 
   const getYPosition = (revenue: number) => {
     const normalized = (revenue - minRevenue) / range;
@@ -13,7 +63,7 @@ export const RevenueChart: React.FC = () => {
   };
 
   const points = revenueData.map((data, index) => ({
-    x: 50 + (index * 60), // 50 offset + 60px spacing
+    x: 50 + (index * (700 / Math.max(revenueData.length - 1, 1))), // Distribute evenly across width
     y: getYPosition(data.revenue),
     revenue: data.revenue,
     month: data.month
@@ -52,22 +102,26 @@ export const RevenueChart: React.FC = () => {
           </defs>
 
           {/* Area fill */}
-          <path
-            d={`${pathData} L ${points[points.length - 1].x} 240 L ${points[0].x} 240 Z`}
-            fill="url(#revenueGradient)"
-            opacity="0.6"
-          />
+          {points.length > 0 && (
+            <path
+              d={`${pathData} L ${points[points.length - 1].x} 240 L ${points[0].x} 240 Z`}
+              fill="url(#revenueGradient)"
+              opacity="0.6"
+            />
+          )}
 
           {/* Main line */}
-          <path
-            d={pathData}
-            stroke="url(#lineGradient)"
-            strokeWidth="3"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="drop-shadow-sm"
-          />
+          {points.length > 0 && (
+            <path
+              d={pathData}
+              stroke="url(#lineGradient)"
+              strokeWidth="3"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="drop-shadow-sm"
+            />
+          )}
 
           {/* Data points */}
           {points.map((point, index) => (
@@ -103,8 +157,6 @@ export const RevenueChart: React.FC = () => {
             </text>
           ))}
         </svg>
-
-        {/* Hover tooltips would go here in a real implementation */}
       </div>
     </Card>
   );

@@ -1,3 +1,6 @@
+// This file is now deprecated as we're using real API data
+// Keeping it for backward compatibility with Reports page
+
 import { Invoice, Client, KPIData, ChartData } from '../types';
 
 export const kpiData: KPIData = {
@@ -34,7 +37,7 @@ export const invoices: Invoice[] = [
   {
     id: 'INV-001',
     invoice_date: '2024-01-15',
-    client: 'TechCorp Solutions',
+    client_name: 'TechCorp Solutions',
     amount: 12500,
     currency_type: 'USD',
     status: 'paid',
@@ -43,7 +46,7 @@ export const invoices: Invoice[] = [
   {
     id: 'INV-002',
     invoice_date: '2024-01-18',
-    client: 'Digital Dynamics',
+    client_name: 'Digital Dynamics',
     amount: 8750,
     currency_type: 'USD',
     status: 'paid',
@@ -52,7 +55,7 @@ export const invoices: Invoice[] = [
   {
     id: 'INV-003',
     invoice_date: '2024-01-22',
-    client: 'Innovation Labs',
+    client_name: 'Innovation Labs',
     amount: 15200,
     currency_type: 'USD',
     status: 'unpaid',
@@ -61,7 +64,7 @@ export const invoices: Invoice[] = [
   {
     id: 'INV-004',
     invoice_date: '2024-01-25',
-    client: 'Creative Studios',
+    client_name: 'Creative Studios',
     amount: 9800,
     currency_type: 'USD',
     status: 'overdue',
@@ -70,7 +73,7 @@ export const invoices: Invoice[] = [
   {
     id: 'INV-005',
     invoice_date: '2024-01-28',
-    client: 'Growth Partners',
+    client_name: 'Growth Partners',
     amount: 11400,
     currency_type: 'USD',
     status: 'paid',
@@ -83,60 +86,55 @@ export const clients: Client[] = [
     id: '1',
     name: 'TechCorp Solutions',
     email: 'contact@techcorp.com',
-    totalInvoiced: 124500,
-    totalPaid: 112000,
-    invoiceCount: 8,
-    averageInvoice: 15562,
-    paymentDelay: 12,
-    avatar: 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-    revenueData: [12000, 15000, 18000, 22000, 19000, 25000, 13500]
+    total_invoiced: 124500,
+    total_paid: 112000,
+    invoice_count: 8,
+    average_invoice: 15562,
+    payment_delay: 12,
+    avatar: 'https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-symbol-image-default-avatar-profile-icon-vector-social-media-user-symbol-209498286.jpg'
   },
   {
     id: '2',
     name: 'Digital Dynamics',
     email: 'hello@digitaldynamics.io',
-    totalInvoiced: 98700,
-    totalPaid: 98700,
-    invoiceCount: 6,
-    averageInvoice: 16450,
-    paymentDelay: 8,
-    avatar: 'https://images.pexels.com/photos/3184360/pexels-photo-3184360.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-    revenueData: [8000, 12000, 16000, 18000, 22000, 15700, 7000]
+    total_invoiced: 98700,
+    total_paid: 98700,
+    invoice_count: 6,
+    average_invoice: 16450,
+    payment_delay: 8,
+    avatar: 'https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-symbol-image-default-avatar-profile-icon-vector-social-media-user-symbol-209498286.jpg'
   },
   {
     id: '3',
     name: 'Innovation Labs',
     email: 'team@innovationlabs.com',
-    totalInvoiced: 87200,
-    totalPaid: 72000,
-    invoiceCount: 5,
-    averageInvoice: 17440,
-    paymentDelay: 15,
-    avatar: 'https://images.pexels.com/photos/3184339/pexels-photo-3184339.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-    revenueData: [10000, 14000, 18000, 20000, 15200, 10000, 0]
+    total_invoiced: 87200,
+    total_paid: 72000,
+    invoice_count: 5,
+    average_invoice: 17440,
+    payment_delay: 15,
+    avatar: 'https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-symbol-image-default-avatar-profile-icon-vector-social-media-user-symbol-209498286.jpg'
   },
   {
     id: '4',
     name: 'Creative Studios',
     email: 'info@creativestudios.design',
-    totalInvoiced: 76800,
-    totalPaid: 67000,
-    invoiceCount: 7,
-    averageInvoice: 10971,
-    paymentDelay: 18,
-    avatar: 'https://images.pexels.com/photos/3184287/pexels-photo-3184287.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-    revenueData: [9000, 11000, 13000, 15000, 12800, 8000, 8000]
+    total_invoiced: 76800,
+    total_paid: 67000,
+    invoice_count: 7,
+    average_invoice: 10971,
+    payment_delay: 18,
+    avatar: 'https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-symbol-image-default-avatar-profile-icon-vector-social-media-user-symbol-209498286.jpg'
   },
   {
     id: '5',
     name: 'Growth Partners',
     email: 'contact@growthpartners.co',
-    totalInvoiced: 65400,
-    totalPaid: 65400,
-    invoiceCount: 4,
-    averageInvoice: 16350,
-    paymentDelay: 5,
-    avatar: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-    revenueData: [15000, 18000, 16400, 16000, 0, 0, 0]
+    total_invoiced: 65400,
+    total_paid: 65400,
+    invoice_count: 4,
+    average_invoice: 16350,
+    payment_delay: 5,
+    avatar: 'https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-symbol-image-default-avatar-profile-icon-vector-social-media-user-symbol-209498286.jpg'
   }
 ];

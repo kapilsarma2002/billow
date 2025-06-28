@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/Card';
 import { TrendingUp, TrendingDown, DollarSign, Users, Clock, CheckCircle } from 'lucide-react';
-import { kpiData } from '../../utils/mockData';
+import axios from 'axios';
+
+interface KPIData {
+  total_invoiced: number;
+  total_paid: number;
+  outstanding: number;
+  client_count: number;
+}
 
 interface KPICardProps {
   title: string;
@@ -43,13 +50,53 @@ const KPICard: React.FC<KPICardProps> = ({ title, value, change, changeType, ico
 };
 
 export const KPICards: React.FC = () => {
+  const [kpiData, setKpiData] = useState<KPIData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchKPIData = async () => {
+      try {
+        const response = await axios.get('http://localhost:8080/api/dashboard/kpi');
+        setKpiData(response.data);
+      } catch (error) {
+        console.error('Error fetching KPI data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchKPIData();
+  }, []);
+
   const formatCurrency = (amount: number) => 
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="p-6 animate-pulse">
+            <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (!kpiData) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <Card className="p-6 text-center">
+          <p className="text-gray-500 dark:text-gray-400">Failed to load KPI data</p>
+        </Card>
+      </div>
+    );
+  }
 
   const cards: KPICardProps[] = [
     {
       title: 'Total Invoiced',
-      value: formatCurrency(kpiData.totalInvoiced),
+      value: formatCurrency(kpiData.total_invoiced),
       change: '+12.5%',
       changeType: 'positive',
       icon: <DollarSign className="w-6 h-6 text-white" />,
@@ -57,7 +104,7 @@ export const KPICards: React.FC = () => {
     },
     {
       title: 'Total Paid',
-      value: formatCurrency(kpiData.totalPaid),
+      value: formatCurrency(kpiData.total_paid),
       change: '+8.2%',
       changeType: 'positive',
       icon: <CheckCircle className="w-6 h-6 text-white" />,
@@ -73,7 +120,7 @@ export const KPICards: React.FC = () => {
     },
     {
       title: 'Active Clients',
-      value: kpiData.clientCount.toString(),
+      value: kpiData.client_count.toString(),
       change: '+2',
       changeType: 'positive',
       icon: <Users className="w-6 h-6 text-white" />,
