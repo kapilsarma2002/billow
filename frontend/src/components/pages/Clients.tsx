@@ -189,7 +189,7 @@ export const Clients: React.FC = () => {
             placeholder="Search clients by name or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 dark:text-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
           />
           {searchTerm && (
             <button
@@ -301,7 +301,7 @@ export const Clients: React.FC = () => {
         size="lg"
       >
         {selectedClient && (
-          <div className="space-y-6">
+          <div className="space-y-6 dark:text-gray-500">
             <div className="flex items-center space-x-4">
               <img
                 src={selectedClient.avatar || `https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
