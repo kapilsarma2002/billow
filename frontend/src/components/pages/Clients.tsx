@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
@@ -34,12 +34,8 @@ export const Clients: React.FC = () => {
     avatar: ''
   });
 
-  // Fetch clients from API
-  useEffect(() => {
-    fetchClients();
-  }, []);
-
-  const fetchClients = async (search?: string) => {
+  // Memoized fetch function to prevent unnecessary re-renders
+  const fetchClients = useCallback(async (search?: string) => {
     try {
       const params = search ? { search } : {};
       const response = await axios.get('http://localhost:8080/api/clients', { params });
@@ -48,16 +44,25 @@ export const Clients: React.FC = () => {
       console.error('Error fetching clients:', error);
       setClients([]);
     }
-  };
+  }, []);
 
-  // Debounced search
+  // Fetch clients on component mount
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
+
+  // Debounced search effect
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchClients(searchTerm);
+      if (searchTerm !== '') {
+        fetchClients(searchTerm);
+      } else {
+        fetchClients();
+      }
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  }, [searchTerm, fetchClients]);
 
   const formatCurrency = (amount: number) => 
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);

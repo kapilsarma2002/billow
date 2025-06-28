@@ -12,9 +12,12 @@ import (
 func main() {
 	config.ConnectDatabase()
 
-	// Auto migrate the database
-	config.DB.AutoMigrate(&models.Invoice{})
+	// Auto migrate the database with proper relationships
 	config.DB.AutoMigrate(&models.Client{})
+	config.DB.AutoMigrate(&models.Invoice{})
+
+	// Add foreign key constraint
+	config.DB.Exec("ALTER TABLE invoices ADD CONSTRAINT fk_invoices_client FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT ON UPDATE CASCADE")
 
 	app := fiber.New()
 

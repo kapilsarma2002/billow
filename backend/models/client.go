@@ -16,6 +16,9 @@ type Client struct {
 	Avatar         string    `json:"avatar"`
 	CreatedAt      time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt      time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	
+	// Relationship
+	Invoices       []Invoice `json:"invoices,omitempty" gorm:"foreignKey:ClientID"`
 }
 
 // GenerateClientID creates a unique client ID using current timestamp

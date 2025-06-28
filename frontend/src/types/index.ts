@@ -1,6 +1,9 @@
 export interface Invoice {
   id: string;
-  client: string;
+  client_id?: string;
+  client?: Client;
+  client_name?: string; // For backward compatibility
+  client: string; // This will be the client name for display
   invoice_date: string;
   amount: number;
   currency_type: string;
@@ -22,6 +25,7 @@ export interface Client {
   avatar: string;
   created_at?: string;
   updated_at?: string;
+  invoices?: Invoice[];
 }
 
 export interface KPIData {

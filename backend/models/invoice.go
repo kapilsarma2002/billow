@@ -7,7 +7,9 @@ import (
 
 type Invoice struct {
 	ID           string    `json:"id" gorm:"primaryKey;type:varchar(30)"`
-	Client       string    `json:"client"`
+	ClientID     string    `json:"client_id" gorm:"type:varchar(30);not null;index"`
+	Client       Client    `json:"client" gorm:"foreignKey:ClientID;references:ID"`
+	ClientName   string    `json:"client_name"` // For backward compatibility
 	InvoiceDate  string    `json:"invoice_date"`
 	Amount       float64   `json:"amount"`
 	CurrencyType string    `json:"currency_type"`

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
@@ -51,21 +51,21 @@ export const Invoices: React.FC = () => {
     amountMax: ''
   });
 
-  useEffect(() => {
-    const getInvoices = () => {
-      axios.get('http://localhost:8080/api/invoices')
-      .then(res => {
-        console.log('res is: ', res)
-        setInvoices(res.data || []);
-      })
-      .catch(err => {
-        console.error('Error fetching invoices:', err);
-        setInvoices([]);
-      });
+  // Memoized fetch function to prevent unnecessary re-renders
+  const fetchInvoices = useCallback(async () => {
+    try {
+      const response = await axios.get('http://localhost:8080/api/invoices');
+      setInvoices(response.data || []);
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      setInvoices([]);
     }
-
-    getInvoices();
   }, []);
+
+  // Fetch invoices only once on component mount
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
 
   // Enhanced filtering logic
   const filteredInvoices = invoices.filter(invoice => {
@@ -187,8 +187,7 @@ export const Invoices: React.FC = () => {
       console.log('Invoice created:', response.data);
       
       // Refresh the invoices list
-      const updatedInvoices = await axios.get('http://localhost:8080/api/invoices');
-      setInvoices(updatedInvoices.data || []);
+      await fetchInvoices();
       
       // Reset form and close modal
       setNewInvoice({
