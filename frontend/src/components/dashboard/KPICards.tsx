@@ -52,24 +52,37 @@ const KPICard: React.FC<KPICardProps> = ({ title, value, change, changeType, ico
 export const KPICards: React.FC = () => {
   const [kpiData, setKpiData] = useState<KPIData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [primaryCurrency, setPrimaryCurrency] = useState('USD');
 
   useEffect(() => {
-    const fetchKPIData = async () => {
+    const fetchData = async () => {
       try {
-        const response = await axios.get('http://localhost:8080/api/dashboard/kpi');
-        setKpiData(response.data);
+        // Fetch KPI data
+        const kpiResponse = await axios.get('http://localhost:8080/api/dashboard/kpi');
+        setKpiData(kpiResponse.data);
+
+        // Fetch primary currency from most recent invoice
+        const invoicesResponse = await axios.get('http://localhost:8080/api/invoices?limit=1');
+        if (invoicesResponse.data && invoicesResponse.data.length > 0) {
+          const mostRecentInvoice = invoicesResponse.data[0];
+          setPrimaryCurrency(mostRecentInvoice.currency_type || 'USD');
+        }
       } catch (error) {
-        console.error('Error fetching KPI data:', error);
+        console.error('Error fetching dashboard data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchKPIData();
+    fetchData();
   }, []);
 
-  const formatCurrency = (amount: number) => 
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
+  const formatCurrency = (amount: number, currency: string = primaryCurrency) => 
+    new Intl.NumberFormat('en-US', { 
+      style: 'currency', 
+      currency: currency, 
+      maximumFractionDigits: 0 
+    }).format(amount);
 
   if (loading) {
     return (

@@ -1,22 +1,75 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Download, Trophy, Clock, TrendingUp, Calendar } from 'lucide-react';
-import { clients, kpiData } from '../../utils/mockData';
+import axios from 'axios';
+
+interface KPIData {
+  total_invoiced: number;
+  total_paid: number;
+  outstanding: number;
+  client_count: number;
+}
+
+interface TopClient {
+  name: string;
+  revenue: number;
+}
 
 export const Reports: React.FC = () => {
-  const formatCurrency = (amount: number) => 
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
+  const [kpiData, setKpiData] = useState<KPIData | null>(null);
+  const [topClients, setTopClients] = useState<TopClient[]>([]);
+  const [primaryCurrency, setPrimaryCurrency] = useState('USD');
+  const [loading, setLoading] = useState(true);
 
-  const mostValuableClient = clients.reduce((prev, current) => 
-    prev.totalInvoiced > current.totalInvoiced ? prev : current
-  );
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch KPI data
+        const kpiResponse = await axios.get('http://localhost:8080/api/dashboard/kpi');
+        setKpiData(kpiResponse.data);
 
-  const mostDelayedClient = clients.reduce((prev, current) => 
-    prev.paymentDelay > current.paymentDelay ? prev : current
-  );
+        // Fetch top clients
+        const clientsResponse = await axios.get('http://localhost:8080/api/dashboard/top-clients');
+        setTopClients(clientsResponse.data || []);
 
-  const topMonth = "October"; // This would be calculated from revenue data
+        // Fetch primary currency from most recent invoice
+        const invoicesResponse = await axios.get('http://localhost:8080/api/invoices?limit=1');
+        if (invoicesResponse.data && invoicesResponse.data.length > 0) {
+          const mostRecentInvoice = invoicesResponse.data[0];
+          setPrimaryCurrency(mostRecentInvoice.currency_type || 'USD');
+        }
+      } catch (error) {
+        console.error('Error fetching reports data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const formatCurrency = (amount: number, currency: string = primaryCurrency) => 
+    new Intl.NumberFormat('en-US', { 
+      style: 'currency', 
+      currency: currency, 
+      maximumFractionDigits: 0 
+    }).format(amount);
+
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-4"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+        </div>
+      </div>
+    );
+  }
+
+  const mostValuableClient = topClients.length > 0 ? topClients[0] : null;
+  const mostDelayedClient = topClients.length > 1 ? topClients[1] : null; // Placeholder logic
+  const topMonth = "Current Month"; // This would be calculated from revenue data
 
   const reports = [
     {
@@ -24,21 +77,21 @@ export const Reports: React.FC = () => {
       description: "Comprehensive breakdown of monthly revenue trends and patterns",
       icon: <TrendingUp className="w-6 h-6" />,
       gradient: "from-blue-600 to-cyan-600",
-      data: formatCurrency(487250)
+      data: kpiData ? formatCurrency(kpiData.total_invoiced) : formatCurrency(0)
     },
     {
       title: "Client Performance Report",
       description: "Detailed analysis of client payment behaviors and profitability",
       icon: <Trophy className="w-6 h-6" />,
       gradient: "from-emerald-600 to-teal-600",
-      data: `${clients.length} clients`
+      data: `${kpiData?.client_count || 0} clients`
     },
     {
       title: "Outstanding Invoices Report",
       description: "Summary of unpaid invoices and collection priorities",
       icon: <Clock className="w-6 h-6" />,
       gradient: "from-orange-600 to-red-600",
-      data: formatCurrency(kpiData.outstanding)
+      data: kpiData ? formatCurrency(kpiData.outstanding) : formatCurrency(0)
     },
     {
       title: "Annual Financial Summary",
@@ -52,24 +105,26 @@ export const Reports: React.FC = () => {
   const highlights = [
     {
       title: "Most Valuable Client",
-      value: mostValuableClient.name,
-      subtext: formatCurrency(mostValuableClient.totalInvoiced),
+      value: mostValuableClient?.name || "No data",
+      subtext: mostValuableClient ? formatCurrency(mostValuableClient.revenue) : formatCurrency(0),
       gradient: "from-blue-600 to-purple-600",
       icon: <Trophy className="w-5 h-5" />
     },
     {
-      title: "Most Delayed Payment",
-      value: mostDelayedClient.name,
-      subtext: `${mostDelayedClient.paymentDelay} days average`,
-      gradient: "from-orange-600 to-red-600",
-      icon: <Clock className="w-5 h-5" />
+      title: "Collection Rate",
+      value: kpiData && kpiData.total_invoiced > 0 
+        ? `${Math.round((kpiData.total_paid / kpiData.total_invoiced) * 100)}%`
+        : "0%",
+      subtext: "Payment success rate",
+      gradient: "from-emerald-600 to-teal-600",
+      icon: <TrendingUp className="w-5 h-5" />
     },
     {
       title: "Top Revenue Month",
       value: topMonth,
-      subtext: "Highest performing month",
-      gradient: "from-emerald-600 to-teal-600",
-      icon: <TrendingUp className="w-5 h-5" />
+      subtext: "Highest performing period",
+      gradient: "from-orange-600 to-red-600",
+      icon: <Calendar className="w-5 h-5" />
     }
   ];
 
@@ -153,39 +208,41 @@ export const Reports: React.FC = () => {
       </div>
 
       {/* Quick Stats */}
-      <Card className="p-8" variant="gradient">
-        <div className="text-center mb-6">
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Quick Statistics</h3>
-          <p className="text-gray-600 dark:text-gray-400">Overview of your business performance</p>
-        </div>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div className="text-center">
-            <p className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
-              {formatCurrency(kpiData.totalInvoiced)}
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
+      {kpiData && (
+        <Card className="p-8" variant="gradient">
+          <div className="text-center mb-6">
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Quick Statistics</h3>
+            <p className="text-gray-600 dark:text-gray-400">Overview of your business performance</p>
           </div>
-          <div className="text-center">
-            <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mb-1">
-              {Math.round((kpiData.totalPaid / kpiData.totalInvoiced) * 100)}%
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Collection Rate</p>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+                {formatCurrency(kpiData.total_invoiced)}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mb-1">
+                {kpiData.total_invoiced > 0 ? Math.round((kpiData.total_paid / kpiData.total_invoiced) * 100) : 0}%
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Collection Rate</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
+                {kpiData.client_count}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Active Clients</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
+                {kpiData.client_count > 0 ? formatCurrency(kpiData.total_invoiced / kpiData.client_count).replace(/[^\d]/g, '').slice(0, -3) + 'K' : '0K'}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Avg per Client</p>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
-              {kpiData.clientCount}
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Active Clients</p>
-          </div>
-          <div className="text-center">
-            <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
-              {Math.round(kpiData.totalInvoiced / kpiData.clientCount / 1000)}K
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Avg per Client</p>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      )}
     </div>
   );
 };

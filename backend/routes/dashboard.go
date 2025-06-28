@@ -3,6 +3,7 @@ package routes
 import (
 	"billow-backend/config"
 	"billow-backend/models"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -56,40 +57,54 @@ func getDashboardKPI(c *fiber.Ctx) error {
 func getRevenueChart(c *fiber.Ctx) error {
 	var revenueData []RevenueChartData
 
-	// Get revenue data for the last 12 months
-	query := `
-		SELECT 
-			TO_CHAR(DATE_TRUNC('month', TO_DATE(invoice_date, 'YYYY-MM-DD')), 'Mon') as month,
-			COALESCE(SUM(amount), 0) as revenue
-		FROM invoices 
-		WHERE status = 'paid' 
-			AND TO_DATE(invoice_date, 'YYYY-MM-DD') >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '11 months'
-		GROUP BY DATE_TRUNC('month', TO_DATE(invoice_date, 'YYYY-MM-DD'))
-		ORDER BY DATE_TRUNC('month', TO_DATE(invoice_date, 'YYYY-MM-DD'))
-	`
+	// Get revenue data for the last 12 months from paid invoices
+	// Using a simpler approach that works with string dates
+	var invoices []models.Invoice
+	if err := config.DB.Where("status = ?", "paid").
+		Order("invoice_date DESC").
+		Find(&invoices).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch revenue data"})
+	}
 
-	if err := config.DB.Raw(query).Scan(&revenueData).Error; err != nil {
-		// Fallback to simple query if complex query fails
-		months := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
-		currentMonth := int(time.Now().Month())
+	// Create a map to aggregate revenue by month
+	monthlyRevenue := make(map[string]float64)
+	
+	// Get last 12 months
+	now := time.Now()
+	for i := 11; i >= 0; i-- {
+		month := now.AddDate(0, -i, 0)
+		monthKey := month.Format("2006-01")
+		monthName := month.Format("Jan")
 		
-		for i := 0; i < 12; i++ {
-			monthIndex := (currentMonth - 12 + i) % 12
-			if monthIndex < 0 {
-				monthIndex += 12
+		// Initialize with 0
+		monthlyRevenue[monthKey] = 0
+		
+		// Add to result with proper month name
+		revenueData = append(revenueData, RevenueChartData{
+			Month:   monthName,
+			Revenue: 0,
+		})
+	}
+
+	// Aggregate actual revenue data
+	for _, invoice := range invoices {
+		if invoice.InvoiceDate != "" {
+			// Parse the invoice date (assuming YYYY-MM-DD format)
+			if invoiceTime, err := time.Parse("2006-01-02", invoice.InvoiceDate); err == nil {
+				monthKey := invoiceTime.Format("2006-01")
+				if _, exists := monthlyRevenue[monthKey]; exists {
+					monthlyRevenue[monthKey] += invoice.Amount
+				}
 			}
-			
-			var revenue float64
-			config.DB.Model(&models.Invoice{}).
-				Where("status = 'paid'").
-				Select("COALESCE(SUM(amount), 0)").
-				Scan(&revenue)
-			
-			revenueData = append(revenueData, RevenueChartData{
-				Month:   months[monthIndex],
-				Revenue: revenue / 12, // Distribute evenly for demo
-			})
 		}
+	}
+
+	// Update the revenue data with actual values
+	now = time.Now()
+	for i := range revenueData {
+		month := now.AddDate(0, -(11-i), 0)
+		monthKey := month.Format("2006-01")
+		revenueData[i].Revenue = monthlyRevenue[monthKey]
 	}
 
 	return c.JSON(revenueData)
@@ -98,19 +113,41 @@ func getRevenueChart(c *fiber.Ctx) error {
 func getTopClients(c *fiber.Ctx) error {
 	var topClients []TopClientData
 
-	query := `
-		SELECT 
-			c.name,
-			COALESCE(SUM(i.amount), 0) as revenue
-		FROM clients c
-		LEFT JOIN invoices i ON c.id = i.client_id AND i.status = 'paid'
-		GROUP BY c.id, c.name
-		ORDER BY revenue DESC
-		LIMIT 5
-	`
+	// Get all clients and calculate their revenue from paid invoices
+	var clients []models.Client
+	if err := config.DB.Find(&clients).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch clients"})
+	}
 
-	if err := config.DB.Raw(query).Scan(&topClients).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch top clients"})
+	// Calculate revenue for each client
+	for _, client := range clients {
+		var totalRevenue float64
+		config.DB.Model(&models.Invoice{}).
+			Where("client_id = ? AND status = ?", client.ID, "paid").
+			Select("COALESCE(SUM(amount), 0)").
+			Scan(&totalRevenue)
+
+		if totalRevenue > 0 {
+			topClients = append(topClients, TopClientData{
+				Name:    client.Name,
+				Revenue: totalRevenue,
+			})
+		}
+	}
+
+	// Sort by revenue (descending) and limit to top 5
+	// Simple bubble sort for small dataset
+	for i := 0; i < len(topClients)-1; i++ {
+		for j := 0; j < len(topClients)-i-1; j++ {
+			if topClients[j].Revenue < topClients[j+1].Revenue {
+				topClients[j], topClients[j+1] = topClients[j+1], topClients[j]
+			}
+		}
+	}
+
+	// Limit to top 5
+	if len(topClients) > 5 {
+		topClients = topClients[:5]
 	}
 
 	return c.JSON(topClients)
@@ -119,9 +156,16 @@ func getTopClients(c *fiber.Ctx) error {
 func getRecentInvoices(c *fiber.Ctx) error {
 	var invoices []models.Invoice
 
+	// Get limit from query parameter, default to 5
+	limitStr := c.Query("limit", "5")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		limit = 5
+	}
+
 	if err := config.DB.Preload("Client").
 		Order("created_at DESC").
-		Limit(5).
+		Limit(limit).
 		Find(&invoices).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch recent invoices"})
 	}

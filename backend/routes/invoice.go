@@ -3,6 +3,7 @@ package routes
 import (
 	"billow-backend/config"
 	"billow-backend/models"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -60,7 +61,17 @@ func createInvoice(c *fiber.Ctx) error {
 func getInvoices(c *fiber.Ctx) error {
 	var invoices []models.Invoice
 	
-	if err := config.DB.Preload("Client").Order("created_at DESC").Find(&invoices).Error; err != nil {
+	// Get limit from query parameter for pagination
+	limitStr := c.Query("limit", "")
+	query := config.DB.Preload("Client").Order("created_at DESC")
+	
+	if limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
+			query = query.Limit(limit)
+		}
+	}
+	
+	if err := query.Find(&invoices).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch invoices"})
 	}
 
