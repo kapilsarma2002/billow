@@ -10,66 +10,13 @@ interface TopClientData {
 export const TopClientsChart: React.FC = () => {
   const [topClientsData, setTopClientsData] = useState<TopClientData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [primaryCurrency, setPrimaryCurrency] = useState('USD');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch all clients first
-        const clientsResponse = await axios.get('http://localhost:8080/api/clients');
-        const allClients = clientsResponse.data || [];
-
-        // Calculate revenue for each client and get top 5
-        const clientsWithRevenue = await Promise.all(
-          allClients.map(async (client: any) => {
-            try {
-              // Get paid invoices for this client
-              const invoicesResponse = await axios.get(`http://localhost:8080/api/invoices`);
-              const allInvoices = invoicesResponse.data || [];
-              
-              const clientInvoices = allInvoices.filter((invoice: any) => 
-                invoice.client_id === client.id && invoice.status === 'paid'
-              );
-              
-              const totalRevenue = clientInvoices.reduce((sum: number, invoice: any) => sum + invoice.amount, 0);
-              
-              return {
-                name: client.name,
-                revenue: totalRevenue
-              };
-            } catch (error) {
-              console.error(`Error fetching invoices for client ${client.name}:`, error);
-              return {
-                name: client.name,
-                revenue: 0
-              };
-            }
-          })
-        );
-
-        // Sort by revenue (descending) and take top 5, but include clients with 0 revenue if needed
-        const sortedClients = clientsWithRevenue.sort((a, b) => b.revenue - a.revenue);
-        const topClients = sortedClients.slice(0, 5);
-
-        // If we have fewer than 5 clients, pad with remaining clients
-        if (topClients.length < 5 && sortedClients.length > topClients.length) {
-          const remainingClients = sortedClients.slice(topClients.length, 5);
-          topClients.push(...remainingClients);
-        }
-
-        setTopClientsData(topClients);
-
-        // Get primary currency from most recent invoice
-        try {
-          const invoicesResponse = await axios.get('http://localhost:8080/api/invoices?limit=1');
-          if (invoicesResponse.data && invoicesResponse.data.length > 0) {
-            const mostRecentInvoice = invoicesResponse.data[0];
-            setPrimaryCurrency(mostRecentInvoice.currency_type || 'USD');
-          }
-        } catch (error) {
-          console.log('No invoices found, using default currency USD');
-          setPrimaryCurrency('USD');
-        }
+        // Use the existing top clients API endpoint which is more efficient
+        const clientsResponse = await axios.get('http://localhost:8080/api/dashboard/top-clients');
+        setTopClientsData(clientsResponse.data || []);
       } catch (error) {
         console.error('Error fetching top clients:', error);
         setTopClientsData([]);
@@ -81,10 +28,10 @@ export const TopClientsChart: React.FC = () => {
     fetchData();
   }, []);
 
-  const formatCurrency = (amount: number, currency: string = primaryCurrency) => 
+  const formatCurrency = (amount: number) => 
     new Intl.NumberFormat('en-US', { 
       style: 'currency', 
-      currency: currency, 
+      currency: 'USD', 
       maximumFractionDigits: 0 
     }).format(amount);
 

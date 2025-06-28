@@ -71,18 +71,8 @@ export const KPICards: React.FC = () => {
           client_count: Math.max(0, kpiResponse.data.client_count - 2) // Mock 2 fewer clients
         });
 
-        // Get primary currency from settings or default to USD
-        // We'll use a more efficient approach - check if we have any invoices and get currency from there
-        try {
-          const invoicesResponse = await axios.get('http://localhost:8080/api/invoices?limit=1');
-          if (invoicesResponse.data && invoicesResponse.data.length > 0) {
-            const mostRecentInvoice = invoicesResponse.data[0];
-            setPrimaryCurrency(mostRecentInvoice.currency_type || 'USD');
-          }
-        } catch (error) {
-          console.log('No invoices found, using default currency USD');
-          setPrimaryCurrency('USD');
-        }
+        // Set default currency to USD - no need to fetch invoices for this
+        setPrimaryCurrency('USD');
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
