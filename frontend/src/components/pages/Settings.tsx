@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
@@ -10,6 +10,8 @@ import {
   Bell, 
   Shield, 
   Upload,
+  Download,
+  FileText,
   Sun,
   Moon,
   Check,
@@ -31,8 +33,12 @@ import {
   Star,
   X,
   Save,
-  Loader
+  Loader,
+  Edit3
 } from 'lucide-react';
+
+// Configuration - In a real app, this would come from authentication context
+const CURRENT_USER_ID = import.meta.env.VITE_USER_ID || 'USR-20241215-143052-123456';
 
 interface UserProfile {
   id: string;
@@ -54,10 +60,6 @@ interface Subscription {
     interval: string;
     invoice_limit: number;
     client_limit: number;
-    messages_per_day: number;
-    image_generation: boolean;
-    custom_voice: boolean;
-    priority_support: boolean;
     advanced_analytics: boolean;
     api_access: boolean;
     white_label: boolean;
@@ -68,16 +70,10 @@ interface UsageMetrics {
   current_usage: {
     invoices_created: number;
     clients_created: number;
-    messages_sent: number;
-    images_generated: number;
   };
   limits: {
     invoice_limit: number;
     client_limit: number;
-    messages_per_day: number;
-    image_generation: boolean;
-    custom_voice: boolean;
-    priority_support: boolean;
   };
   period: {
     start: string;
@@ -100,7 +96,6 @@ interface UserPreferences {
   language: string;
   email_notifications: boolean;
   push_notifications: boolean;
-  marketing_emails: boolean;
   weekly_reports: boolean;
   security_alerts: boolean;
   currency: string;
@@ -112,7 +107,6 @@ interface AnalyticsData {
   invoices_created: number;
   clients_added: number;
   revenue_generated: number;
-  messages_count: number;
 }
 
 export const Settings: React.FC = () => {
@@ -131,6 +125,9 @@ export const Settings: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<string>('');
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
+  // Ref to track if data has been fetched
+  const dataFetchedRef = useRef(false);
+  
   // Form states
   const [profileForm, setProfileForm] = useState({
     display_name: '',
@@ -143,7 +140,6 @@ export const Settings: React.FC = () => {
     language: 'en',
     email_notifications: true,
     push_notifications: true,
-    marketing_emails: false,
     weekly_reports: true,
     security_alerts: true,
     currency: 'USD',
@@ -152,32 +148,49 @@ export const Settings: React.FC = () => {
 
   // Fetch data on component mount
   useEffect(() => {
-    fetchAllData();
-  }, []);
+    // Prevent duplicate API calls in React strict mode
+    if (dataFetchedRef.current) return;
+    dataFetchedRef.current = true;
+    
+    let isMounted = true;
+    
+    const fetchData = async () => {
+      if (!isMounted) return;
+      
+      setLoading(true);
+      try {
+        await Promise.all([
+          fetchProfile(),
+          fetchSubscription(),
+          fetchUsageMetrics(),
+          fetchAvailablePlans(),
+          fetchPreferences(),
+          fetchAnalytics()
+        ]);
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error fetching data:', error);
+          showNotification('error', 'Failed to load settings data');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-  const fetchAllData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        fetchProfile(),
-        fetchSubscription(),
-        fetchUsageMetrics(),
-        fetchAvailablePlans(),
-        fetchPreferences(),
-        fetchAnalytics()
-      ]);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      showNotification('error', 'Failed to load settings data');
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchData();
+
+    // Cleanup function to prevent memory leaks and duplicate calls
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const fetchProfile = async () => {
     try {
       const response = await axios.get('/api/settings/profile', {
-        headers: { 'X-User-ID': 'USR-20241215-143052-123456' }
+        headers: { 'X-User-ID': CURRENT_USER_ID }
       });
       setProfile(response.data);
       setProfileForm({
@@ -187,60 +200,77 @@ export const Settings: React.FC = () => {
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
+      throw error;
     }
   };
 
   const fetchSubscription = async () => {
     try {
       const response = await axios.get('/api/subscription/status', {
-        headers: { 'X-User-ID': 'USR-20241215-143052-123456' }
+        headers: { 'X-User-ID': CURRENT_USER_ID }
       });
       setSubscription(response.data.subscription);
     } catch (error) {
       console.error('Error fetching subscription:', error);
+      throw error;
     }
   };
 
   const fetchUsageMetrics = async () => {
     try {
       const response = await axios.get('/api/subscription/usage', {
-        headers: { 'X-User-ID': 'USR-20241215-143052-123456' }
+        headers: { 'X-User-ID': CURRENT_USER_ID }
       });
       setUsageMetrics(response.data);
     } catch (error) {
       console.error('Error fetching usage metrics:', error);
+      throw error;
     }
   };
 
   const fetchAvailablePlans = async () => {
     try {
       const response = await axios.get('/api/subscription/plans');
-      setAvailablePlans(response.data.plans);
+      console.log('Plans response:', response.data);
+      if (response.data && response.data.plans) {
+        setAvailablePlans(response.data.plans);
+      } else {
+        console.error('Invalid plans response structure:', response.data);
+        setAvailablePlans([]);
+      }
     } catch (error) {
       console.error('Error fetching plans:', error);
+      throw error;
     }
   };
 
   const fetchPreferences = async () => {
     try {
       const response = await axios.get('/api/settings/preferences', {
-        headers: { 'X-User-ID': 'USR-20241215-143052-123456' }
+        headers: { 'X-User-ID': CURRENT_USER_ID }
       });
       setPreferences(response.data);
       setPreferencesForm(response.data);
     } catch (error) {
       console.error('Error fetching preferences:', error);
+      throw error;
     }
   };
 
   const fetchAnalytics = async () => {
     try {
       const response = await axios.get('/api/analytics/usage', {
-        headers: { 'X-User-ID': 'USR-20241215-143052-123456' }
+        headers: { 'X-User-ID': CURRENT_USER_ID }
       });
-      setAnalytics(response.data.analytics);
+      if (response.data && response.data.analytics) {
+        setAnalytics(response.data.analytics);
+      } else {
+        console.error('Invalid analytics response structure:', response.data);
+        setAnalytics([]);
+      }
     } catch (error) {
       console.error('Error fetching analytics:', error);
+      throw error;
     }
   };
 
@@ -249,7 +279,7 @@ export const Settings: React.FC = () => {
     setLoading(true);
     try {
       const response = await axios.post('/api/settings/profile', profileForm, {
-        headers: { 'X-User-ID': 'USR-20241215-143052-123456' }
+        headers: { 'X-User-ID': CURRENT_USER_ID }
       });
       setProfile(response.data.user);
       showNotification('success', 'Profile updated successfully');
@@ -265,7 +295,7 @@ export const Settings: React.FC = () => {
     setLoading(true);
     try {
       const response = await axios.post('/api/settings/preferences', preferencesForm, {
-        headers: { 'X-User-ID': 'USR-20241215-143052-123456' }
+        headers: { 'X-User-ID': CURRENT_USER_ID }
       });
       setPreferences(response.data.preferences);
       showNotification('success', 'Preferences updated successfully');
@@ -281,7 +311,7 @@ export const Settings: React.FC = () => {
     setLoading(true);
     try {
       await axios.post('/api/subscription/change', { plan_id: planId }, {
-        headers: { 'X-User-ID': 'USR-20241215-143052-123456' }
+        headers: { 'X-User-ID': CURRENT_USER_ID }
       });
       await fetchSubscription();
       await fetchUsageMetrics();
@@ -532,20 +562,11 @@ export const Settings: React.FC = () => {
                       </div>
                       <div className="text-center">
                         <div className="flex items-center justify-center mb-2">
-                          <MessageSquare className="w-5 h-5 text-purple-600" />
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Messages/Day</p>
-                        <p className="font-bold text-gray-900 dark:text-white">
-                          {subscription.plan.messages_per_day === -1 ? 'Unlimited' : subscription.plan.messages_per_day}
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <div className="flex items-center justify-center mb-2">
                           <Headphones className="w-5 h-5 text-orange-600" />
                         </div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Support</p>
                         <p className="font-bold text-gray-900 dark:text-white">
-                          {subscription.plan.priority_support ? 'Priority' : 'Standard'}
+                          {subscription.plan.advanced_analytics ? 'Priority' : 'Standard'}
                         </p>
                       </div>
                     </div>
@@ -568,13 +589,13 @@ export const Settings: React.FC = () => {
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Invoices Created</span>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {usageMetrics.current_usage.invoices_created} / {usageMetrics.limits.invoice_limit === -1 ? '∞' : usageMetrics.limits.invoice_limit}
+                          {usageMetrics.current_usage?.invoices_created || 0} / {usageMetrics.limits?.invoice_limit === -1 ? '∞' : usageMetrics.limits?.invoice_limit || 0}
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
                           className="bg-gradient-to-r from-blue-600 to-cyan-600 h-2 rounded-full transition-all duration-1000"
-                          style={{ width: `${getUsagePercentage(usageMetrics.current_usage.invoices_created, usageMetrics.limits.invoice_limit)}%` }}
+                          style={{ width: `${getUsagePercentage(usageMetrics.current_usage?.invoices_created || 0, usageMetrics.limits?.invoice_limit || 0)}%` }}
                         />
                       </div>
                     </div>
@@ -583,54 +604,18 @@ export const Settings: React.FC = () => {
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Clients Added</span>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {usageMetrics.current_usage.clients_created} / {usageMetrics.limits.client_limit === -1 ? '∞' : usageMetrics.limits.client_limit}
+                          {usageMetrics.current_usage?.clients_created || 0} / {usageMetrics.limits?.client_limit === -1 ? '∞' : usageMetrics.limits?.client_limit || 0}
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
                           className="bg-gradient-to-r from-emerald-600 to-teal-600 h-2 rounded-full transition-all duration-1000"
-                          style={{ width: `${getUsagePercentage(usageMetrics.current_usage.clients_created, usageMetrics.limits.client_limit)}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Messages Sent</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {usageMetrics.current_usage.messages_sent} / {usageMetrics.limits.messages_per_day === -1 ? '∞' : usageMetrics.limits.messages_per_day}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full transition-all duration-1000"
-                          style={{ width: `${getUsagePercentage(usageMetrics.current_usage.messages_sent, usageMetrics.limits.messages_per_day)}%` }}
+                          style={{ width: `${getUsagePercentage(usageMetrics.current_usage?.clients_created || 0, usageMetrics.limits?.client_limit || 0)}%` }}
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <div className="text-center">
-                        <div className={`inline-flex p-2 rounded-lg mb-2 ${usageMetrics.limits.image_generation ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
-                          <Image className="w-4 h-4" />
-                        </div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">Image Generation</p>
-                        <p className="text-sm font-medium">{usageMetrics.limits.image_generation ? 'Enabled' : 'Disabled'}</p>
-                      </div>
-                      <div className="text-center">
-                        <div className={`inline-flex p-2 rounded-lg mb-2 ${usageMetrics.limits.custom_voice ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
-                          <Mic className="w-4 h-4" />
-                        </div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">Custom Voice</p>
-                        <p className="text-sm font-medium">{usageMetrics.limits.custom_voice ? 'Enabled' : 'Disabled'}</p>
-                      </div>
-                      <div className="text-center">
-                        <div className={`inline-flex p-2 rounded-lg mb-2 ${usageMetrics.limits.priority_support ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
-                          <Headphones className="w-4 h-4" />
-                        </div>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">Priority Support</p>
-                        <p className="text-sm font-medium">{usageMetrics.limits.priority_support ? 'Enabled' : 'Disabled'}</p>
-                      </div>
                       <div className="text-center">
                         <div className="inline-flex p-2 rounded-lg mb-2 bg-blue-100 text-blue-600">
                           <BarChart3 className="w-4 h-4" />
@@ -755,7 +740,6 @@ export const Settings: React.FC = () => {
                   {[
                     { key: 'email_notifications', label: 'Email notifications', icon: <Mail className="w-4 h-4" /> },
                     { key: 'push_notifications', label: 'Push notifications', icon: <Smartphone className="w-4 h-4" /> },
-                    { key: 'marketing_emails', label: 'Marketing emails', icon: <Star className="w-4 h-4" /> },
                     { key: 'weekly_reports', label: 'Weekly reports', icon: <Calendar className="w-4 h-4" /> },
                     { key: 'security_alerts', label: 'Security alerts', icon: <Shield className="w-4 h-4" /> },
                   ].map((setting) => (
@@ -818,29 +802,49 @@ export const Settings: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                   <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl">
                     <DollarSign className="w-8 h-8 mx-auto mb-2 text-blue-600" />
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">$12,450</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {analytics && analytics.length > 0 
+                        ? formatCurrency(analytics.reduce((sum, data) => sum + data.revenue_generated, 0))
+                        : '$0'
+                      }
+                    </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Revenue Generated</p>
                   </div>
                   <div className="text-center p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl">
                     <FileText className="w-8 h-8 mx-auto mb-2 text-emerald-600" />
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">127</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {analytics && analytics.length > 0 
+                        ? analytics.reduce((sum, data) => sum + data.invoices_created, 0)
+                        : '0'
+                      }
+                    </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Invoices Created</p>
                   </div>
                   <div className="text-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl">
                     <Users className="w-8 h-8 mx-auto mb-2 text-purple-600" />
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">23</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {analytics && analytics.length > 0 
+                        ? analytics.reduce((sum, data) => sum + data.clients_added, 0)
+                        : '0'
+                      }
+                    </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Clients Added</p>
                   </div>
                   <div className="text-center p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl">
                     <MessageSquare className="w-8 h-8 mx-auto mb-2 text-orange-600" />
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">1,847</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Messages Sent</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {analytics && analytics.length > 0 
+                        ? analytics.reduce((sum, data) => sum + data.revenue_generated, 0)
+                        : '0'
+                      }
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Revenue Generated</p>
                   </div>
                 </div>
 
                 {/* Simple chart representation */}
                 <div className="h-64 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20 rounded-xl p-6 flex items-end justify-between">
-                  {analytics.slice(0, 7).map((data, index) => (
+                  {analytics && analytics.length > 0 ? analytics.slice(0, 7).map((data, index) => (
                     <div key={index} className="flex flex-col items-center">
                       <div
                         className="w-8 bg-gradient-to-t from-blue-600 to-purple-600 rounded-t-lg mb-2"
@@ -850,7 +854,11 @@ export const Settings: React.FC = () => {
                         {new Date(data.date).toLocaleDateString('en-US', { weekday: 'short' })}
                       </span>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <p className="text-gray-500 dark:text-gray-400">No analytics data available</p>
+                    </div>
+                  )}
                 </div>
               </Card>
             </div>
@@ -950,11 +958,21 @@ export const Settings: React.FC = () => {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Total Invoices</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">127</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {analytics && analytics.length > 0 
+                    ? analytics.reduce((sum, data) => sum + data.invoices_created, 0)
+                    : '0'
+                  }
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">$12,450</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {analytics && analytics.length > 0 
+                    ? formatCurrency(analytics.reduce((sum, data) => sum + data.revenue_generated, 0))
+                    : '$0'
+                  }
+                </span>
               </div>
             </div>
           </Card>
@@ -998,59 +1016,70 @@ export const Settings: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {availablePlans.map((plan) => (
-              <Card 
-                key={plan.id} 
-                className={`p-6 relative cursor-pointer transition-all ${
-                  plan.popular ? 'ring-2 ring-blue-500 scale-105' : ''
-                } ${selectedPlan === plan.id ? 'ring-2 ring-purple-500' : ''}`}
-                variant="glass"
+            {availablePlans && availablePlans.length > 0 ? availablePlans.map((plan) => (
+              <div
+                key={plan.id}
                 onClick={() => setSelectedPlan(plan.id)}
+                className="cursor-pointer"
               >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
-
-                <div className="text-center mb-6">
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{plan.name}</h4>
-                  <div className="flex items-center justify-center">
-                    <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                      {formatCurrency(plan.price)}
-                    </span>
-                    <span className="text-gray-600 dark:text-gray-400 ml-1">/{plan.interval}</span>
-                  </div>
-                </div>
-
-                <ul className="space-y-3 mb-6">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-center text-sm">
-                      <Check className="w-4 h-4 text-emerald-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-700 dark:text-gray-300">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Button 
-                  variant={plan.popular ? "gradient" : "secondary"} 
-                  className="w-full"
-                  onClick={() => changePlan(plan.id)}
-                  disabled={loading}
+                <Card 
+                  className={`p-6 relative transition-all ${
+                    plan.popular ? 'ring-2 ring-blue-500 scale-105' : ''
+                  } ${selectedPlan === plan.id ? 'ring-2 ring-purple-500' : ''}`}
+                  variant="glass"
                 >
-                  {loading && selectedPlan === plan.id ? (
-                    <div className="flex items-center space-x-2">
-                      <Loader className="w-4 h-4 animate-spin" />
-                      <span>Upgrading...</span>
+                  {plan.popular && (
+                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                      <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+                        Most Popular
+                      </span>
                     </div>
-                  ) : (
-                    subscription?.plan.id === plan.id ? 'Current Plan' : 'Select Plan'
                   )}
-                </Button>
-              </Card>
-            ))}
+
+                  <div className="text-center mb-6">
+                    <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{plan.name}</h4>
+                    <div className="flex items-center justify-center">
+                      <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                        {formatCurrency(plan.price)}
+                      </span>
+                      <span className="text-gray-600 dark:text-gray-400 ml-1">/{plan.interval}</span>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-3 mb-6">
+                    {plan.features && plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-center text-sm">
+                        <Check className="w-4 h-4 text-emerald-500 mr-2 flex-shrink-0" />
+                        <span className="text-gray-700 dark:text-gray-300">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button 
+                    variant={plan.popular ? "gradient" : "secondary"} 
+                    className="w-full"
+                    onClick={() => changePlan(plan.id)}
+                    disabled={loading}
+                  >
+                    {loading && selectedPlan === plan.id ? (
+                      <div className="flex items-center space-x-2">
+                        <Loader className="w-4 h-4 animate-spin" />
+                        <span>Upgrading...</span>
+                      </div>
+                    ) : (
+                      subscription?.plan.id === plan.id ? 'Current Plan' : 'Select Plan'
+                    )}
+                  </Button>
+                </Card>
+              </div>
+            )) : (
+              <div className="col-span-3 text-center py-8">
+                <div className="flex items-center justify-center mb-4">
+                  <Loader className="w-8 h-8 animate-spin text-blue-600" />
+                </div>
+                <p className="text-gray-600 dark:text-gray-400">Loading available plans...</p>
+              </div>
+            )}
           </div>
         </div>
       </Modal>

@@ -2,22 +2,25 @@ package main
 
 import (
 	"billow-backend/config"
-	"billow-backend/middleware"
 	"billow-backend/models"
 	"billow-backend/routes"
+
+	"fmt"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func main() {
+	fmt.Println("Starting Billow backend...")
 	config.ConnectDatabase()
 
 	// Auto migrate the database with proper relationships
 	// GORM will handle foreign key constraints automatically
 	config.DB.AutoMigrate(&models.Client{})
 	config.DB.AutoMigrate(&models.Invoice{})
-	
+
 	// Migrate new models for settings and subscription management
 	config.DB.AutoMigrate(&models.User{})
 	config.DB.AutoMigrate(&models.Plan{})
@@ -31,39 +34,32 @@ func main() {
 
 	app := fiber.New()
 
-	// Add CORS middleware
+	// Add CORS middleware with proper configuration
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:5173",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization, X-User-ID",
-		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
+		AllowOrigins:     "http://localhost:5173",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-User-ID",
+		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
+		AllowCredentials: true,
 	}))
 
-	// Apply rate limiting middleware to API routes
-	app.Use("/api", middleware.RateLimitMiddleware())
-
 	// Setup all routes
+	fmt.Println("Setting up routes...")
 	routes.Setup(app)
 	routes.SetupClientRoutes(app)
 	routes.SetupDashboardRoutes(app)
 	routes.SetupSettingsRoutes(app)
 
-	// Protected routes that require specific features
-	app.Use("/api/advanced-analytics", middleware.RequireFeature("advanced_analytics"))
-	app.Use("/api/image-generation", middleware.RequireFeature("image_generation"))
-	app.Use("/api/custom-voice", middleware.RequireFeature("custom_voice"))
-
-	// Usage tracking for key features
-	app.Use("/api/invoices", middleware.TrackUsage("invoice_created"))
-	app.Use("/api/clients", middleware.TrackUsage("client_created"))
-
-	app.Listen(":8080")
+	fmt.Println("Starting server on :8080...")
+	if err := app.Listen(":8080"); err != nil {
+		log.Fatal("Failed to start server:", err)
+	}
 }
 
 func seedDefaultPlans() {
 	// Check if plans already exist
 	var count int64
 	config.DB.Model(&models.Plan{}).Count(&count)
-	
+
 	if count == 0 {
 		plans := []models.Plan{
 			{
@@ -74,10 +70,6 @@ func seedDefaultPlans() {
 				Interval:          "month",
 				InvoiceLimit:      50,
 				ClientLimit:       10,
-				MessagesPerDay:    100,
-				ImageGeneration:   false,
-				CustomVoice:       false,
-				PrioritySupport:   false,
 				AdvancedAnalytics: false,
 				APIAccess:         false,
 				WhiteLabel:        false,
@@ -90,10 +82,6 @@ func seedDefaultPlans() {
 				Interval:          "month",
 				InvoiceLimit:      -1, // Unlimited
 				ClientLimit:       -1, // Unlimited
-				MessagesPerDay:    1000,
-				ImageGeneration:   true,
-				CustomVoice:       true,
-				PrioritySupport:   true,
 				AdvancedAnalytics: true,
 				APIAccess:         true,
 				WhiteLabel:        false,
@@ -106,10 +94,6 @@ func seedDefaultPlans() {
 				Interval:          "month",
 				InvoiceLimit:      -1, // Unlimited
 				ClientLimit:       -1, // Unlimited
-				MessagesPerDay:    -1, // Unlimited
-				ImageGeneration:   true,
-				CustomVoice:       true,
-				PrioritySupport:   true,
 				AdvancedAnalytics: true,
 				APIAccess:         true,
 				WhiteLabel:        true,
