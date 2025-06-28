@@ -2,7 +2,7 @@ import React from 'react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { invoices } from '../../utils/mockData';
-import { ExternalLink, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 
 export const RecentInvoices: React.FC = () => {
   const formatCurrency = (amount: number) => 
@@ -33,7 +33,6 @@ export const RecentInvoices: React.FC = () => {
           <p className="text-sm text-gray-600 dark:text-gray-400">Latest invoice transactions</p>
         </div>
         <Button variant="ghost" size="sm">
-          <ExternalLink className="w-4 h-4 mr-2" />
           View All
         </Button>
       </div>
@@ -60,7 +59,7 @@ export const RecentInvoices: React.FC = () => {
                   <span className="font-medium text-gray-900 dark:text-white">{invoice.id}</span>
                 </td>
                 <td className="py-4 px-4">
-                  <span className="text-gray-700 dark:text-gray-300">{invoice.client}</span>
+                  <span className="text-gray-700 dark:text-gray-300">{invoice.client_name}</span>
                 </td>
                 <td className="py-4 px-4">
                   <span className="font-semibold text-gray-900 dark:text-white">
@@ -73,7 +72,7 @@ export const RecentInvoices: React.FC = () => {
                   </span>
                 </td>
                 <td className="py-4 px-4">
-                  <span className="text-gray-600 dark:text-gray-400">{formatDate(invoice.dueDate)}</span>
+                  <span className="text-gray-600 dark:text-gray-400">{formatDate(invoice.due_date)}</span>
                 </td>
                 <td className="py-4 px-4">
                   <Button 

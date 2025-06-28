@@ -84,7 +84,7 @@ export const Clients: React.FC = () => {
 
     try {
       // Generate a default avatar URL based on name
-      const avatarUrl = `https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`;
+      const avatarUrl = `https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-symbol-image-default-avatar-profile-icon-vector-social-media-user-symbol-209498286.jpg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`;
       
       const clientData = {
         ...newClient,
@@ -225,12 +225,12 @@ export const Clients: React.FC = () => {
             <Card key={client.id} className="p-6 hover:scale-105 transition-all duration-300 cursor-pointer" variant="glass">
               <div className="flex items-center space-x-4 mb-4">
                 <img
-                  src={client.avatar || `https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
+                  src={client.avatar || `https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-symbol-image-default-avatar-profile-icon-vector-social-media-user-symbol-209498286.jpg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
                   alt={client.name}
                   className="w-12 h-12 rounded-full object-cover ring-2 ring-white dark:ring-gray-700"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    target.src = `https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`;
+                    target.src = `https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-symbol-image-default-avatar-profile-icon-vector-social-media-user-symbol-209498286.jpg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`;
                   }}
                 />
                 <div className="flex-1">
@@ -300,12 +300,12 @@ export const Clients: React.FC = () => {
           <div className="space-y-6 dark:text-gray-500">
             <div className="flex items-center space-x-4">
               <img
-                src={selectedClient.avatar || `https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
+                src={selectedClient.avatar || `https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-symbol-image-default-avatar-profile-icon-vector-social-media-user-symbol-209498286.jpg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
                 alt={selectedClient.name}
                 className="w-16 h-16 rounded-full object-cover ring-4 ring-blue-500/20"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.src = `https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`;
+                  target.src = `https://thumbs.dreamstime.com/b/default-avatar-profile-icon-vector-social-media-user-symbol-image-default-avatar-profile-icon-vector-social-media-user-symbol-209498286.jpg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`;
                 }}
               />
               <div>

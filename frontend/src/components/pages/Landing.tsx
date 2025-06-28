@@ -373,7 +373,7 @@ export const Landing: React.FC = () => {
                 src={dashboardImage}
                 alt="Billow Dashboard - Invoice Analytics Platform"
                 className={`
-                  w-full h-auto max-w-[90%] mx-auto
+                  w-full h-auto max-w-[95%] mx-auto
                   dashboard-image float-animation
                   shadow-2xl
                   transition-all duration-500 ease-out
