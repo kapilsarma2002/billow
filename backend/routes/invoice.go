@@ -17,12 +17,16 @@ func createInvoice(c *fiber.Ctx) error {
 	if err := c.BodyParser(invoice); err != nil {
 		return c.Status(400).JSON(err.Error())
 	}
+
+	// Generate unique invoice ID using current date and time
+	invoice.ID = models.GenerateInvoiceID()
+
 	config.DB.Create(&invoice)
 	return c.JSON(invoice)
 }
 
 func getInvoices(c *fiber.Ctx) error {
 	var invoices []models.Invoice
-	config.DB.Find(&invoices)
+	config.DB.Order("created_at DESC").Find(&invoices)
 	return c.JSON(invoices)
 }

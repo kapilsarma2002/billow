@@ -84,8 +84,7 @@ export const Invoices: React.FC = () => {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setIsLoading(true);
 
     try {
@@ -167,7 +166,7 @@ export const Invoices: React.FC = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              className="px-2 py-3 bg-white dark:bg-gray-800 dark:text-gray-400 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
             >
               <option value="all">All Status</option>
               <option value="paid">Paid</option>
@@ -250,7 +249,7 @@ export const Invoices: React.FC = () => {
         title="Create New Invoice"
         size="lg"
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form className="space-y-6 dark:text-gray-400">
           {/* Header with gradient */}
           <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-blue-200/50 dark:border-blue-500/20">
             <div className="flex items-center space-x-3">
@@ -369,7 +368,6 @@ export const Invoices: React.FC = () => {
           {/* Action Buttons */}
           <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700">
             <Button
-              type="button"
               variant="secondary"
               onClick={handleModalClose}
               disabled={isLoading}
@@ -377,10 +375,10 @@ export const Invoices: React.FC = () => {
               Cancel
             </Button>
             <Button
-              type="submit"
               variant="gradient"
               disabled={isLoading}
               className="min-w-[120px]"
+              onClick={handleSubmit}
             >
               {isLoading ? (
                 <div className="flex items-center space-x-2">

@@ -4,8 +4,10 @@ export interface Invoice {
   invoice_date: string;
   amount: number;
   currency_type: string;
-  status: 'paid' | 'unpaid' | 'overdue';
+  status: 'paid' | 'unpaid' | 'overdue' | 'processing';
   due_date: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Client {
