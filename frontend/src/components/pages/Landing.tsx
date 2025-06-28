@@ -21,11 +21,13 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
+import dashboardImage from '../../assets/dashboard_billow.png';
 
 export const Landing: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAnnual, setIsAnnual] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const features = [
     {
@@ -157,6 +159,49 @@ export const Landing: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950">
+      {/* Add custom CSS for animations */}
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-5px); }
+        }
+        
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .float-animation {
+          animation: float 4s ease-in-out infinite;
+        }
+        
+        .fade-in-animation {
+          animation: fadeInUp 0.8s ease-out forwards;
+        }
+        
+        .dashboard-image {
+          transition: all 0.3s ease;
+        }
+        
+        .dashboard-image:hover {
+          transform: scale(1.02);
+        }
+        
+        .image-loading-bg {
+          background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        }
+        
+        .dark .image-loading-bg {
+          background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+        }
+      `}</style>
+
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -256,12 +301,12 @@ export const Landing: React.FC = () => {
       <section className="pt-24 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 text-sm font-medium mb-6">
+            <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 text-sm font-medium mb-6 fade-in-animation">
               <Star className="w-4 h-4 mr-2" />
               Trusted by 500+ freelancers and small businesses
             </div>
             
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
+            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight fade-in-animation">
               Transform Your{' '}
               <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 Invoice Data
@@ -270,12 +315,12 @@ export const Landing: React.FC = () => {
               Into Business Insights
             </h1>
             
-            <p className="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-3xl mx-auto leading-relaxed fade-in-animation">
               Stop juggling spreadsheets. Get meaningful insights from your invoices with revenue trends, 
               client analytics, cash flow visualizations, and automated tax summaries.
             </p>
             
-            <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-12">
+            <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-12 fade-in-animation">
               <Button 
                 variant="gradient" 
                 size="lg"
@@ -295,7 +340,7 @@ export const Landing: React.FC = () => {
             </div>
 
             {/* Trust indicators */}
-            <div className="flex items-center justify-center space-x-8 text-sm text-gray-500 dark:text-gray-400">
+            <div className="flex items-center justify-center space-x-8 text-sm text-gray-500 dark:text-gray-400 fade-in-animation">
               <div className="flex items-center space-x-2">
                 <Shield className="w-4 h-4" />
                 <span>Bank-level Security</span>
@@ -311,25 +356,48 @@ export const Landing: React.FC = () => {
             </div>
           </div>
 
-          {/* Hero Image/Dashboard Preview */}
-          <div className="relative max-w-5xl mx-auto">
+          {/* Enhanced Hero Image/Dashboard Preview */}
+          <div className="relative max-w-6xl mx-auto fade-in-animation">
             <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-              <div className="aspect-video bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 flex items-center justify-center">
-                <div className="text-center">
-                  <BarChart3 className="w-24 h-24 text-blue-600 mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                    Beautiful Analytics Dashboard
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    See your invoice data come to life with interactive charts and insights
-                  </p>
+              {/* Loading background */}
+              {!imageLoaded && (
+                <div className="aspect-video image-loading-bg flex items-center justify-center">
+                  <div className="animate-pulse">
+                    <BarChart3 className="w-16 h-16 text-gray-400" />
+                  </div>
                 </div>
-              </div>
+              )}
+              
+              {/* Dashboard Image */}
+              <img
+                src={dashboardImage}
+                alt="Billow Dashboard - Invoice Analytics Platform"
+                className={`
+                  w-full h-auto max-w-[90%] mx-auto
+                  dashboard-image float-animation
+                  shadow-2xl
+                  transition-all duration-500 ease-out
+                  ${imageLoaded ? 'opacity-100' : 'opacity-0 absolute inset-0'}
+                `}
+                style={{
+                  filter: 'drop-shadow(0 25px 50px rgba(0, 0, 0, 0.15))',
+                }}
+                loading="lazy"
+                onLoad={() => setImageLoaded(true)}
+                onError={(e) => {
+                  console.error('Failed to load dashboard image');
+                  setImageLoaded(true);
+                }}
+              />
             </div>
             
             {/* Floating elements */}
             <div className="absolute -top-4 -left-4 w-24 h-24 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full opacity-20 animate-pulse" />
             <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full opacity-20 animate-pulse" />
+            
+            {/* Additional floating elements for depth */}
+            <div className="absolute top-1/4 -right-8 w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full opacity-15 float-animation" style={{ animationDelay: '1s' }} />
+            <div className="absolute bottom-1/4 -left-8 w-20 h-20 bg-gradient-to-r from-orange-500 to-red-500 rounded-full opacity-15 float-animation" style={{ animationDelay: '2s' }} />
           </div>
         </div>
       </section>
