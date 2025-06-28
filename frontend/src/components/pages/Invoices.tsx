@@ -7,7 +7,7 @@ import axios from 'axios';
 import { Search, Filter, Upload, Download, Plus, Calendar, DollarSign, User, FileText, X, SlidersHorizontal } from 'lucide-react';
 
 interface NewInvoice {
-  client: string;
+  client_name: string; // Changed to match backend expectation
   invoice_date: string;
   amount: number;
   currency_type: string;
@@ -33,7 +33,7 @@ export const Invoices: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [newInvoice, setNewInvoice] = useState<NewInvoice>({
-    client: '',
+    client_name: '', // Changed from client to client_name
     invoice_date: '',
     amount: 0,
     currency_type: 'USD',
@@ -70,8 +70,9 @@ export const Invoices: React.FC = () => {
   // Enhanced filtering logic
   const filteredInvoices = invoices.filter(invoice => {
     // Text search - searches in client name and invoice ID
+    const clientName = invoice.client_name || invoice.client || '';
     const matchesSearch = filters.searchTerm === '' || 
-      invoice.client.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+      clientName.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
       invoice.id.toString().toLowerCase().includes(filters.searchTerm.toLowerCase());
 
     // Status filter
@@ -183,15 +184,14 @@ export const Invoices: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:8080/api/invoices', newInvoice);
-      console.log('Invoice created:', response.data);
+      await axios.post('http://localhost:8080/api/invoices', newInvoice);
       
       // Refresh the invoices list
       await fetchInvoices();
       
       // Reset form and close modal
       setNewInvoice({
-        client: '',
+        client_name: '',
         invoice_date: '',
         amount: 0,
         currency_type: 'USD',
@@ -208,7 +208,7 @@ export const Invoices: React.FC = () => {
 
   const resetForm = () => {
     setNewInvoice({
-      client: '',
+      client_name: '',
       invoice_date: '',
       amount: 0,
       currency_type: 'USD',
@@ -232,7 +232,7 @@ export const Invoices: React.FC = () => {
       
       const csvData = invoices.map(invoice => [
         invoice.id,
-        invoice.client,
+        invoice.client_name || invoice.client || '',
         invoice.invoice_date,
         invoice.amount,
         invoice.currency_type || 'USD',
@@ -284,7 +284,7 @@ export const Invoices: React.FC = () => {
       
       const csvData = [
         invoice.id,
-        invoice.client,
+        invoice.client_name || invoice.client || '',
         invoice.invoice_date,
         invoice.amount,
         invoice.currency_type || 'USD',
@@ -531,56 +531,59 @@ export const Invoices: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredInvoices.map((invoice, index) => (
-                  <tr 
-                    key={invoice.id}
-                    className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-all duration-200 group"
-                  >
-                    <td className="py-4 px-6">
-                      <span className="font-medium text-blue-600 dark:text-blue-400">{invoice.id}</span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="text-gray-700 dark:text-gray-300">{formatDate(invoice.invoice_date)}</span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-sm">
-                          {invoice.client.charAt(0)}
+                filteredInvoices.map((invoice, index) => {
+                  const clientName = invoice.client_name || invoice.client || '';
+                  return (
+                    <tr 
+                      key={invoice.id}
+                      className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-all duration-200 group"
+                    >
+                      <td className="py-4 px-6">
+                        <span className="font-medium text-blue-600 dark:text-blue-400">{invoice.id}</span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="text-gray-700 dark:text-gray-300">{formatDate(invoice.invoice_date)}</span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-sm">
+                            {clientName.charAt(0)}
+                          </div>
+                          <span className="font-medium text-gray-900 dark:text-white">{clientName}</span>
                         </div>
-                        <span className="font-medium text-gray-900 dark:text-white">{invoice.client}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="font-semibold text-gray-900 dark:text-white">
-                        {invoice.currency_type ? formatCurrency(invoice.amount, invoice.currency_type) : `$${invoice.amount}`}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className={getStatusBadge(invoice.status)}>
-                        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="text-gray-600 dark:text-gray-400">{formatDate(invoice.due_date)}</span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => downloadSingleInvoice(invoice)}
-                        disabled={downloadingInvoiceId === invoice.id}
-                        className="opacity-0 group-hover:opacity-100 transition-all duration-200"
-                        title={`Download ${invoice.id}`}
-                      >
-                        {downloadingInvoiceId === invoice.id ? (
-                          <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <Download className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {invoice.currency_type ? formatCurrency(invoice.amount, invoice.currency_type) : `$${invoice.amount}`}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className={getStatusBadge(invoice.status)}>
+                          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="text-gray-600 dark:text-gray-400">{formatDate(invoice.due_date)}</span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => downloadSingleInvoice(invoice)}
+                          disabled={downloadingInvoiceId === invoice.id}
+                          className="opacity-0 group-hover:opacity-100 transition-all duration-200"
+                          title={`Download ${invoice.id}`}
+                        >
+                          {downloadingInvoiceId === invoice.id ? (
+                            <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -756,8 +759,8 @@ export const Invoices: React.FC = () => {
               <input
                 type="text"
                 required
-                value={newInvoice.client}
-                onChange={(e) => handleInputChange('client', e.target.value)}
+                value={newInvoice.client_name}
+                onChange={(e) => handleInputChange('client_name', e.target.value)}
                 className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 placeholder="Enter client name"
               />

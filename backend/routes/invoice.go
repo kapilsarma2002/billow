@@ -21,11 +21,11 @@ func createInvoice(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	// Generate unique invoice ID using current date and time
+	// Generate unique invoice ID
 	invoice.ID = models.GenerateInvoiceID()
 
-	// Handle backward compatibility - if client_name is provided, find or create client
-	if invoice.ClientName != "" && invoice.ClientID == "" {
+	// Handle client creation/lookup by name (backward compatibility)
+	if invoice.ClientName != "" {
 		var client models.Client
 		// Try to find existing client by name
 		if err := config.DB.Where("name = ?", invoice.ClientName).First(&client).Error; err != nil {
@@ -46,8 +46,13 @@ func createInvoice(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create invoice"})
 	}
 
-	// Load the client relationship
+	// Load the client relationship for response
 	config.DB.Preload("Client").First(&invoice, "id = ?", invoice.ID)
+	
+	// Set client name for backward compatibility
+	if invoice.Client.Name != "" {
+		invoice.ClientName = invoice.Client.Name
+	}
 
 	return c.JSON(invoice)
 }
@@ -55,13 +60,11 @@ func createInvoice(c *fiber.Ctx) error {
 func getInvoices(c *fiber.Ctx) error {
 	var invoices []models.Invoice
 	
-	query := config.DB.Preload("Client").Order("created_at DESC")
-	
-	if err := query.Find(&invoices).Error; err != nil {
+	if err := config.DB.Preload("Client").Order("created_at DESC").Find(&invoices).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch invoices"})
 	}
 
-	// For backward compatibility, set client_name field
+	// Set client names for backward compatibility
 	for i := range invoices {
 		if invoices[i].Client.Name != "" {
 			invoices[i].ClientName = invoices[i].Client.Name
@@ -79,7 +82,7 @@ func getInvoice(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Invoice not found"})
 	}
 
-	// For backward compatibility
+	// Set client name for backward compatibility
 	if invoice.Client.Name != "" {
 		invoice.ClientName = invoice.Client.Name
 	}
@@ -99,8 +102,8 @@ func updateInvoice(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	// Handle client_name updates
-	if invoice.ClientName != "" && invoice.ClientID == "" {
+	// Handle client updates
+	if invoice.ClientName != "" {
 		var client models.Client
 		if err := config.DB.Where("name = ?", invoice.ClientName).First(&client).Error; err != nil {
 			client = models.Client{
@@ -118,6 +121,11 @@ func updateInvoice(c *fiber.Ctx) error {
 
 	// Load the client relationship
 	config.DB.Preload("Client").First(&invoice, "id = ?", invoice.ID)
+	
+	// Set client name for backward compatibility
+	if invoice.Client.Name != "" {
+		invoice.ClientName = invoice.Client.Name
+	}
 
 	return c.JSON(invoice)
 }

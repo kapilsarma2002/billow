@@ -2,8 +2,7 @@ export interface Invoice {
   id: string;
   client_id?: string;
   client?: Client;
-  client_name?: string; // For backward compatibility
-  client: string; // This will be the client name for display
+  client_name?: string; // For backward compatibility and display
   invoice_date: string;
   amount: number;
   currency_type: string;

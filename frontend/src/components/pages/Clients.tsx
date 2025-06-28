@@ -54,11 +54,7 @@ export const Clients: React.FC = () => {
   // Debounced search effect
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (searchTerm !== '') {
-        fetchClients(searchTerm);
-      } else {
-        fetchClients();
-      }
+      fetchClients(searchTerm || undefined);
     }, 300);
 
     return () => clearTimeout(timeoutId);

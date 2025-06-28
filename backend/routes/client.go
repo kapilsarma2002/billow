@@ -66,7 +66,7 @@ func getClient(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var client models.Client
 
-	if err := config.DB.Preload("Invoices").First(&client, "id = ?", id).Error; err != nil {
+	if err := config.DB.First(&client, "id = ?", id).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Client not found"})
 	}
 
@@ -127,7 +127,7 @@ func getClientRevenueData(c *fiber.Ctx) error {
 		monthsInt = 7
 	}
 
-	// Get actual revenue data from invoices
+	// Get actual revenue data from paid invoices
 	var invoices []models.Invoice
 	if err := config.DB.Where("client_id = ? AND status = 'paid'", id).
 		Order("invoice_date DESC").

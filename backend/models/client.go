@@ -17,7 +17,7 @@ type Client struct {
 	CreatedAt      time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt      time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 	
-	// Relationship
+	// Relationship - will be populated when needed
 	Invoices       []Invoice `json:"invoices,omitempty" gorm:"foreignKey:ClientID"`
 }
 
