@@ -51,8 +51,8 @@ export const Invoices: React.FC = () => {
     amountMax: ''
   });
 
-  // Memoized fetch function to prevent unnecessary re-renders
-  const fetchInvoices = useCallback(async () => {
+  // Fetch invoices function
+  const fetchInvoices = async () => {
     try {
       const response = await axios.get('http://localhost:8080/api/invoices');
       setInvoices(response.data || []);
@@ -60,17 +60,19 @@ export const Invoices: React.FC = () => {
       console.error('Error fetching invoices:', error);
       setInvoices([]);
     }
-  }, []);
+  };
 
   // Fetch invoices only once on component mount
   useEffect(() => {
     fetchInvoices();
-  }, [fetchInvoices]);
+  }, []);
 
   // Enhanced filtering logic
   const filteredInvoices = invoices.filter(invoice => {
     // Text search - searches in client name and invoice ID
-    const clientName = invoice.client_name || invoice.client || '';
+    const clientName = typeof invoice.client_name === 'string' ? invoice.client_name : 
+                      typeof invoice.client === 'string' ? invoice.client :
+                      typeof invoice.client === 'object' && invoice.client ? invoice.client.name : '';
     const matchesSearch = filters.searchTerm === '' || 
       clientName.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
       invoice.id.toString().toLowerCase().includes(filters.searchTerm.toLowerCase());
@@ -532,7 +534,9 @@ export const Invoices: React.FC = () => {
                 </tr>
               ) : (
                 filteredInvoices.map((invoice, index) => {
-                  const clientName = invoice.client_name || invoice.client || '';
+                  const clientName = typeof invoice.client_name === 'string' ? invoice.client_name : 
+                                    typeof invoice.client === 'string' ? invoice.client :
+                                    typeof invoice.client === 'object' && invoice.client ? invoice.client.name : '';
                   return (
                     <tr 
                       key={invoice.id}
@@ -572,7 +576,6 @@ export const Invoices: React.FC = () => {
                           onClick={() => downloadSingleInvoice(invoice)}
                           disabled={downloadingInvoiceId === invoice.id}
                           className="opacity-0 group-hover:opacity-100 transition-all duration-200"
-                          title={`Download ${invoice.id}`}
                         >
                           {downloadingInvoiceId === invoice.id ? (
                             <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />

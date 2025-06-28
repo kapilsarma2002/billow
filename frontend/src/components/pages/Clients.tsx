@@ -34,8 +34,8 @@ export const Clients: React.FC = () => {
     avatar: ''
   });
 
-  // Memoized fetch function to prevent unnecessary re-renders
-  const fetchClients = useCallback(async (search?: string) => {
+  // Fetch clients function
+  const fetchClients = async (search?: string) => {
     try {
       const params = search ? { search } : {};
       const response = await axios.get('http://localhost:8080/api/clients', { params });
@@ -44,21 +44,16 @@ export const Clients: React.FC = () => {
       console.error('Error fetching clients:', error);
       setClients([]);
     }
-  }, []);
+  };
 
-  // Fetch clients on component mount
-  useEffect(() => {
-    fetchClients();
-  }, [fetchClients]);
-
-  // Debounced search effect
+  // Single effect to handle initial load and debounced search
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       fetchClients(searchTerm || undefined);
-    }, 300);
+    }, searchTerm ? 300 : 0); // No delay for initial load, 300ms for search
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, fetchClients]);
+  }, [searchTerm]);
 
   const formatCurrency = (amount: number) => 
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
