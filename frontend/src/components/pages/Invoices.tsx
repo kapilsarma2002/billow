@@ -30,6 +30,7 @@ export const Invoices: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [newInvoice, setNewInvoice] = useState<NewInvoice>({
     client: '',
     invoice_date: '',
@@ -221,6 +222,58 @@ export const Invoices: React.FC = () => {
     resetForm();
   };
 
+  // CSV Download functionality
+  const downloadCSV = async () => {
+    setIsDownloading(true);
+    
+    try {
+      // Convert invoices to CSV format
+      const csvHeaders = ['Invoice ID', 'Client', 'Invoice Date', 'Amount', 'Currency', 'Status', 'Due Date', 'Created At'];
+      
+      const csvData = invoices.map(invoice => [
+        invoice.id,
+        invoice.client,
+        invoice.invoice_date,
+        invoice.amount,
+        invoice.currency_type || 'USD',
+        invoice.status,
+        invoice.due_date,
+        invoice.created_at ? new Date(invoice.created_at).toISOString().split('T')[0] : ''
+      ]);
+
+      // Create CSV content
+      const csvContent = [
+        csvHeaders.join(','),
+        ...csvData.map(row => row.map(field => 
+          typeof field === 'string' && field.includes(',') ? `"${field}"` : field
+        ).join(','))
+      ].join('\n');
+
+      // Generate filename with format: kapil_sarma_YYYY-MM-DD
+      const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      const filename = `kapil_sarma_${currentDate}.csv`;
+
+      // Create and download the file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error downloading CSV:', error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -235,6 +288,24 @@ export const Invoices: React.FC = () => {
           <Button variant="secondary">
             <Upload className="w-4 h-4 mr-2" />
             Upload CSV
+          </Button>
+          <Button 
+            variant="secondary" 
+            onClick={downloadCSV}
+            disabled={isDownloading || invoices.length === 0}
+            className="relative"
+          >
+            {isDownloading ? (
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                <span>Downloading...</span>
+              </div>
+            ) : (
+              <>
+                <Download className="w-4 h-4 mr-2" />
+                Download CSV
+              </>
+            )}
           </Button>
           <Button variant="gradient" onClick={() => setIsAddModalOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
