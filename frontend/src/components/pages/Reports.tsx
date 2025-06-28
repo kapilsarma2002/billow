@@ -5,14 +5,14 @@ import { Download, Trophy, Clock, TrendingUp, Calendar } from 'lucide-react';
 import axios from 'axios';
 
 interface ReportsSummaryData {
-  total_revenue: number;
+  total_revenue: number; // Already in USD from backend
   collection_rate: number;
   top_client: string;
-  top_client_revenue: number;
+  top_client_revenue: number; // Already in USD from backend
   top_revenue_month: string;
   client_count: number;
-  average_per_client: number;
-  primary_currency: string;
+  average_per_client: number; // Already in USD from backend
+  primary_currency: string; // Always "USD"
 }
 
 interface ReportData {
@@ -32,6 +32,7 @@ export const Reports: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Fetch reports summary (all amounts already in USD from backend)
         const summaryResponse = await axios.get('http://localhost:8080/api/dashboard/reports-summary');
         setSummaryData(summaryResponse.data);
       } catch (error) {
@@ -44,10 +45,11 @@ export const Reports: React.FC = () => {
     fetchData();
   }, []);
 
-  const formatCurrency = (amount: number, currency: string = 'USD') => 
+  // Always format as USD since all amounts are in USD from backend
+  const formatCurrency = (amount: number) => 
     new Intl.NumberFormat('en-US', { 
       style: 'currency', 
-      currency: currency, 
+      currency: 'USD', 
       maximumFractionDigits: 0 
     }).format(amount);
 
@@ -76,7 +78,7 @@ export const Reports: React.FC = () => {
           const revenueData = revenueResponse.data || [];
           
           csvContent = [
-            `Month,Revenue (${summaryData?.primary_currency || 'USD'})`,
+            'Month,Revenue (USD)',
             ...revenueData.map((item: any) => `${item.month},${item.revenue}`)
           ].join('\n');
           filename = `monthly_revenue_report_${new Date().toISOString().split('T')[0]}.csv`;
@@ -87,7 +89,7 @@ export const Reports: React.FC = () => {
           const clientsData = clientsResponse.data || [];
           
           csvContent = [
-            `Client Name,Revenue (${summaryData?.primary_currency || 'USD'})`,
+            'Client Name,Revenue (USD)',
             ...clientsData.map((client: any) => `"${client.name}",${client.revenue}`)
           ].join('\n');
           filename = `client_performance_report_${new Date().toISOString().split('T')[0]}.csv`;
@@ -112,12 +114,12 @@ export const Reports: React.FC = () => {
         case 'Annual Financial Summary':
           csvContent = [
             'Metric,Value,Currency',
-            `Total Revenue,${summaryData?.total_revenue || 0},${summaryData?.primary_currency || 'USD'}`,
+            `Total Revenue,${summaryData?.total_revenue || 0},USD`,
             `Collection Rate,${summaryData?.collection_rate || 0}%,N/A`,
             `Top Client,"${summaryData?.top_client || 'N/A'}",N/A`,
-            `Top Client Revenue,${summaryData?.top_client_revenue || 0},${summaryData?.primary_currency || 'USD'}`,
+            `Top Client Revenue,${summaryData?.top_client_revenue || 0},USD`,
             `Client Count,${summaryData?.client_count || 0},N/A`,
-            `Average Per Client,${summaryData?.average_per_client || 0},${summaryData?.primary_currency || 'USD'}`,
+            `Average Per Client,${summaryData?.average_per_client || 0},USD`,
             `Top Revenue Month,"${summaryData?.top_revenue_month || 'N/A'}",N/A`
           ].join('\n');
           filename = `annual_financial_summary_${new Date().getFullYear()}.csv`;
@@ -179,15 +181,13 @@ export const Reports: React.FC = () => {
     );
   }
 
-  const primaryCurrency = summaryData?.primary_currency || 'USD';
-
   const reports: ReportData[] = [
     {
       title: "Monthly Revenue Report",
       description: "Comprehensive breakdown of monthly revenue trends and patterns",
       icon: <TrendingUp className="w-6 h-6" />,
       gradient: "from-blue-600 to-cyan-600",
-      data: formatCurrency(summaryData?.total_revenue || 0, primaryCurrency),
+      data: formatCurrency(summaryData?.total_revenue || 0),
       endpoint: "revenue-chart"
     },
     {
@@ -203,7 +203,7 @@ export const Reports: React.FC = () => {
       description: "Summary of unpaid invoices and collection priorities",
       icon: <Clock className="w-6 h-6" />,
       gradient: "from-orange-600 to-red-600",
-      data: formatCurrency((summaryData?.total_revenue || 0) - ((summaryData?.total_revenue || 0) * (summaryData?.collection_rate || 0) / 100), primaryCurrency)
+      data: formatCurrency((summaryData?.total_revenue || 0) - ((summaryData?.total_revenue || 0) * (summaryData?.collection_rate || 0) / 100))
     },
     {
       title: "Annual Financial Summary",
@@ -218,7 +218,7 @@ export const Reports: React.FC = () => {
     {
       title: "Most Valuable Client",
       value: summaryData?.top_client || "No data",
-      subtext: formatCurrency(summaryData?.top_client_revenue || 0, primaryCurrency),
+      subtext: formatCurrency(summaryData?.top_client_revenue || 0),
       gradient: "from-blue-600 to-purple-600",
       icon: <Trophy className="w-5 h-5" />
     },
@@ -244,7 +244,7 @@ export const Reports: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Reports</h1>
-          <p className="text-gray-600 dark:text-gray-400">Generate and export detailed business reports (All amounts in {primaryCurrency})</p>
+          <p className="text-gray-600 dark:text-gray-400">Generate and export detailed business reports (All amounts in USD)</p>
         </div>
         <Button 
           variant="gradient" 
@@ -348,13 +348,13 @@ export const Reports: React.FC = () => {
         <Card className="p-8" variant="gradient">
           <div className="text-center mb-6">
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Quick Statistics</h3>
-            <p className="text-gray-600 dark:text-gray-400">Overview of your business performance (All amounts in {primaryCurrency})</p>
+            <p className="text-gray-600 dark:text-gray-400">Overview of your business performance (All amounts in USD)</p>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="text-center">
               <p className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
-                {formatCurrency(summaryData.total_revenue, primaryCurrency)}
+                {formatCurrency(summaryData.total_revenue)}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
             </div>
@@ -372,7 +372,7 @@ export const Reports: React.FC = () => {
             </div>
             <div className="text-center">
               <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
-                {summaryData.client_count > 0 ? formatCurrency(summaryData.average_per_client, primaryCurrency).replace(/[^\d]/g, '').slice(0, -3) + 'K' : '0K'}
+                {summaryData.client_count > 0 ? formatCurrency(summaryData.average_per_client).replace(/[^\d]/g, '').slice(0, -3) + 'K' : '0K'}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Avg per Client</p>
             </div>

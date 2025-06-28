@@ -55,14 +55,15 @@ export const Clients: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
+  // Always format as USD since all calculations are done in USD on backend
   const formatCurrency = (amount: number) => 
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
 
   const openClientModal = async (client: Client) => {
     setSelectedClient(client);
     setIsModalOpen(true);
     
-    // Fetch revenue data for the client
+    // Fetch revenue data for the client (already in USD from backend)
     try {
       const response = await axios.get<ClientRevenueData>(`http://localhost:8080/api/clients/${client.id}/revenue-data`);
       setRevenueData(response.data.revenue_data);
@@ -167,7 +168,7 @@ export const Clients: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Clients</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Manage your client relationships and analytics • {clients.length} clients
+            Manage your client relationships and analytics • {clients.length} clients (All amounts in USD)
           </p>
         </div>
         <Button variant="gradient" onClick={() => setIsAddModalOpen(true)}>
@@ -312,7 +313,7 @@ export const Clients: React.FC = () => {
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">{selectedClient.name}</h3>
                 <p className="text-gray-600 dark:text-gray-400">{selectedClient.email}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-500">
-                  Client since {new Date(selectedClient.created_at || '').toLocaleDateString('en-IN', { 
+                  Client since {new Date(selectedClient.created_at || '').toLocaleDateString('en-US', { 
                     month: 'long', 
                     year: 'numeric' 
                   })}
@@ -345,7 +346,7 @@ export const Clients: React.FC = () => {
             </div>
 
             <div>
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Revenue Trend</h4>
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Revenue Trend (USD)</h4>
               <div className="h-20 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-4">
                 <SparklineChart data={revenueData} color="#8b5cf6" />
               </div>
@@ -385,7 +386,7 @@ export const Clients: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Client Information</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Add a new client to your database</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Add a new client to your database (amounts in USD)</p>
               </div>
             </div>
           </div>
@@ -427,7 +428,7 @@ export const Clients: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <DollarSign className="w-4 h-4 inline mr-2" />
-                Total Invoiced
+                Total Invoiced (USD)
               </label>
               <input
                 type="number"
@@ -444,7 +445,7 @@ export const Clients: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <DollarSign className="w-4 h-4 inline mr-2" />
-                Total Paid
+                Total Paid (USD)
               </label>
               <input
                 type="number"

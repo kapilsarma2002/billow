@@ -4,7 +4,7 @@ import axios from 'axios';
 
 interface RevenueData {
   month: string;
-  revenue: number;
+  revenue: number; // Already in USD from backend
 }
 
 export const RevenueChart: React.FC = () => {
@@ -14,6 +14,7 @@ export const RevenueChart: React.FC = () => {
   useEffect(() => {
     const fetchRevenueData = async () => {
       try {
+        // Fetch revenue data (already converted to USD on backend)
         const response = await axios.get('http://localhost:8080/api/dashboard/revenue-chart');
         setRevenueData(response.data || []);
       } catch (error) {
@@ -44,7 +45,7 @@ export const RevenueChart: React.FC = () => {
       <Card className="p-6" variant="glass">
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Monthly Revenue</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">Revenue trends over the past 12 months</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Revenue trends over the past 12 months (in USD)</p>
         </div>
         <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
           <p>No revenue data available</p>
@@ -83,7 +84,7 @@ export const RevenueChart: React.FC = () => {
     <Card className="p-6" variant="glass">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Monthly Revenue</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">Revenue trends over the past 12 months</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">Revenue trends over the past 12 months (in USD)</p>
       </div>
 
       <div className="relative">

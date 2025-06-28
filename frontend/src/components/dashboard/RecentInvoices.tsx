@@ -28,12 +28,23 @@ export const RecentInvoices: React.FC = () => {
     fetchRecentInvoices();
   }, []);
 
-  const formatCurrency = (amount: number, currency_type?: string) => 
-    new Intl.NumberFormat('en-US', { 
+  // Format currency - show original currency but also show USD equivalent
+  const formatCurrency = (amount: number, currency_type?: string) => {
+    if (!currency_type || currency_type === 'USD') {
+      return new Intl.NumberFormat('en-US', { 
+        style: 'currency', 
+        currency: 'USD', 
+        maximumFractionDigits: 0 
+      }).format(amount);
+    }
+    
+    // Show original currency
+    return new Intl.NumberFormat('en-US', { 
       style: 'currency', 
-      currency: currency_type || 'USD', 
+      currency: currency_type, 
       maximumFractionDigits: 0 
     }).format(amount);
+  };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
@@ -131,7 +142,7 @@ export const RecentInvoices: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Recent Invoices</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">Latest invoice transactions</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Latest invoice transactions (amounts in original currency)</p>
         </div>
         <Button variant="ghost" size="sm" onClick={() => navigate('/invoices')}>
           View All

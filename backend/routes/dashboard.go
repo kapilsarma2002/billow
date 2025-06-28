@@ -15,12 +15,9 @@ func SetupDashboardRoutes(app *fiber.App) {
 	app.Get("/api/dashboard/top-clients", getTopClients)
 	app.Get("/api/dashboard/recent-invoices", getRecentInvoices)
 	app.Get("/api/dashboard/reports-summary", getReportsSummary)
-	app.Get("/api/dashboard/collection-rate", getCollectionRate)
-	app.Get("/api/dashboard/top-revenue-month", getTopRevenueMonth)
-	app.Get("/api/dashboard/primary-currency", getPrimaryCurrency)
 }
 
-// Currency conversion rates (in a real app, these would come from an API)
+// Currency conversion rates to USD (updated regularly in production)
 var currencyRates = map[string]float64{
 	"USD": 1.0,
 	"EUR": 1.09,
@@ -28,42 +25,45 @@ var currencyRates = map[string]float64{
 	"INR": 0.012,
 	"CAD": 0.74,
 	"AUD": 0.66,
+	"JPY": 0.0067,
+	"CHF": 1.11,
+	"CNY": 0.14,
 }
 
-// Convert amount to USD
+// Convert any currency to USD
 func convertToUSD(amount float64, currency string) float64 {
-	if currency == "" {
-		currency = "USD"
+	if currency == "" || currency == "USD" {
+		return amount
 	}
 	rate, exists := currencyRates[currency]
 	if !exists {
-		rate = 1.0 // Default to USD if currency not found
+		rate = 1.0 // Default to USD rate if currency not found
 	}
 	return amount * rate
 }
 
-// KPI Data structure
+// KPI Data structure - all amounts in USD
 type KPIData struct {
-	TotalInvoiced    float64 `json:"total_invoiced"`
-	TotalPaid        float64 `json:"total_paid"`
-	Outstanding      float64 `json:"outstanding"`
-	ClientCount      int64   `json:"client_count"`
-	PrimaryCurrency  string  `json:"primary_currency"`
+	TotalInvoiced   float64 `json:"total_invoiced"`
+	TotalPaid       float64 `json:"total_paid"`
+	Outstanding     float64 `json:"outstanding"`
+	ClientCount     int64   `json:"client_count"`
+	PrimaryCurrency string  `json:"primary_currency"` // Always "USD"
 }
 
-// Revenue Chart Data
+// Revenue Chart Data - all amounts in USD
 type RevenueChartData struct {
 	Month   string  `json:"month"`
 	Revenue float64 `json:"revenue"`
 }
 
-// Top Client Data
+// Top Client Data - all amounts in USD
 type TopClientData struct {
 	Name    string  `json:"name"`
 	Revenue float64 `json:"revenue"`
 }
 
-// Reports Summary Data
+// Reports Summary Data - all amounts in USD
 type ReportsSummaryData struct {
 	TotalRevenue     float64 `json:"total_revenue"`
 	CollectionRate   float64 `json:"collection_rate"`
@@ -72,70 +72,22 @@ type ReportsSummaryData struct {
 	TopRevenueMonth  string  `json:"top_revenue_month"`
 	ClientCount      int64   `json:"client_count"`
 	AveragePerClient float64 `json:"average_per_client"`
-	PrimaryCurrency  string  `json:"primary_currency"`
-}
-
-func getPrimaryCurrency(c *fiber.Ctx) error {
-	// Get the most frequently used currency
-	var currencyCount []struct {
-		Currency string
-		Count    int64
-	}
-
-	config.DB.Model(&models.Invoice{}).
-		Select("COALESCE(currency_type, 'USD') as currency, COUNT(*) as count").
-		Group("currency_type").
-		Order("count DESC").
-		Scan(&currencyCount)
-
-	primaryCurrency := "USD"
-	if len(currencyCount) > 0 && currencyCount[0].Currency != "" {
-		primaryCurrency = currencyCount[0].Currency
-	}
-
-	return c.JSON(fiber.Map{
-		"primary_currency": primaryCurrency,
-	})
+	PrimaryCurrency  string  `json:"primary_currency"` // Always "USD"
 }
 
 func getDashboardKPI(c *fiber.Ctx) error {
 	var kpi KPIData
 
-	// Get all invoices with their currencies
+	// Get all invoices and convert to USD
 	var invoices []models.Invoice
 	config.DB.Find(&invoices)
 
-	// Calculate totals by converting all currencies to USD
 	totalInvoicedUSD := 0.0
 	totalPaidUSD := 0.0
 
-	// Get primary currency (most used)
-	currencyCount := make(map[string]int)
 	for _, invoice := range invoices {
-		currency := invoice.CurrencyType
-		if currency == "" {
-			currency = "USD"
-		}
-		currencyCount[currency]++
-	}
-
-	primaryCurrency := "USD"
-	maxCount := 0
-	for currency, count := range currencyCount {
-		if count > maxCount {
-			maxCount = count
-			primaryCurrency = currency
-		}
-	}
-
-	// Convert all amounts to USD for calculations
-	for _, invoice := range invoices {
-		currency := invoice.CurrencyType
-		if currency == "" {
-			currency = "USD"
-		}
-		
-		amountUSD := convertToUSD(invoice.Amount, currency)
+		// Convert each invoice amount to USD
+		amountUSD := convertToUSD(invoice.Amount, invoice.CurrencyType)
 		totalInvoicedUSD += amountUSD
 		
 		if invoice.Status == "paid" {
@@ -143,16 +95,10 @@ func getDashboardKPI(c *fiber.Ctx) error {
 		}
 	}
 
-	// Convert back to primary currency for display
-	primaryRate := currencyRates[primaryCurrency]
-	if primaryRate == 0 {
-		primaryRate = 1.0
-	}
-
-	kpi.TotalInvoiced = totalInvoicedUSD / primaryRate
-	kpi.TotalPaid = totalPaidUSD / primaryRate
-	kpi.Outstanding = kpi.TotalInvoiced - kpi.TotalPaid
-	kpi.PrimaryCurrency = primaryCurrency
+	kpi.TotalInvoiced = totalInvoicedUSD
+	kpi.TotalPaid = totalPaidUSD
+	kpi.Outstanding = totalInvoicedUSD - totalPaidUSD
+	kpi.PrimaryCurrency = "USD" // Always USD
 
 	// Get client count
 	config.DB.Model(&models.Client{}).Count(&kpi.ClientCount)
@@ -171,26 +117,7 @@ func getRevenueChart(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch revenue data"})
 	}
 
-	// Get primary currency
-	currencyCount := make(map[string]int)
-	for _, invoice := range invoices {
-		currency := invoice.CurrencyType
-		if currency == "" {
-			currency = "USD"
-		}
-		currencyCount[currency]++
-	}
-
-	primaryCurrency := "USD"
-	maxCount := 0
-	for currency, count := range currencyCount {
-		if count > maxCount {
-			maxCount = count
-			primaryCurrency = currency
-		}
-	}
-
-	// Create a map to aggregate revenue by month (in USD first, then convert)
+	// Create a map to aggregate revenue by month in USD
 	monthlyRevenueUSD := make(map[string]float64)
 	
 	// Get last 12 months
@@ -210,34 +137,25 @@ func getRevenueChart(c *fiber.Ctx) error {
 		})
 	}
 
-	// Aggregate actual revenue data (convert to USD first)
+	// Aggregate actual revenue data (convert all to USD)
 	for _, invoice := range invoices {
 		if invoice.InvoiceDate != "" {
 			if invoiceTime, err := time.Parse("2006-01-02", invoice.InvoiceDate); err == nil {
 				monthKey := invoiceTime.Format("2006-01")
 				if _, exists := monthlyRevenueUSD[monthKey]; exists {
-					currency := invoice.CurrencyType
-					if currency == "" {
-						currency = "USD"
-					}
-					amountUSD := convertToUSD(invoice.Amount, currency)
+					amountUSD := convertToUSD(invoice.Amount, invoice.CurrencyType)
 					monthlyRevenueUSD[monthKey] += amountUSD
 				}
 			}
 		}
 	}
 
-	// Convert from USD to primary currency and update the revenue data
-	primaryRate := currencyRates[primaryCurrency]
-	if primaryRate == 0 {
-		primaryRate = 1.0
-	}
-
+	// Update the revenue data with USD amounts
 	now = time.Now()
 	for i := range revenueData {
 		month := now.AddDate(0, -(11-i), 0)
 		monthKey := month.Format("2006-01")
-		revenueData[i].Revenue = monthlyRevenueUSD[monthKey] / primaryRate
+		revenueData[i].Revenue = monthlyRevenueUSD[monthKey]
 	}
 
 	return c.JSON(revenueData)
@@ -252,54 +170,21 @@ func getTopClients(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch clients"})
 	}
 
-	// Get primary currency
-	var invoices []models.Invoice
-	config.DB.Find(&invoices)
-	
-	currencyCount := make(map[string]int)
-	for _, invoice := range invoices {
-		currency := invoice.CurrencyType
-		if currency == "" {
-			currency = "USD"
-		}
-		currencyCount[currency]++
-	}
-
-	primaryCurrency := "USD"
-	maxCount := 0
-	for currency, count := range currencyCount {
-		if count > maxCount {
-			maxCount = count
-			primaryCurrency = currency
-		}
-	}
-
-	// Calculate revenue for each client (convert to USD first, then to primary currency)
+	// Calculate revenue for each client in USD
 	for _, client := range clients {
 		var clientInvoices []models.Invoice
 		config.DB.Where("client_id = ? AND status = ?", client.ID, "paid").Find(&clientInvoices)
 
 		totalRevenueUSD := 0.0
 		for _, invoice := range clientInvoices {
-			currency := invoice.CurrencyType
-			if currency == "" {
-				currency = "USD"
-			}
-			amountUSD := convertToUSD(invoice.Amount, currency)
+			amountUSD := convertToUSD(invoice.Amount, invoice.CurrencyType)
 			totalRevenueUSD += amountUSD
 		}
-
-		// Convert to primary currency
-		primaryRate := currencyRates[primaryCurrency]
-		if primaryRate == 0 {
-			primaryRate = 1.0
-		}
-		totalRevenuePrimary := totalRevenueUSD / primaryRate
 
 		// Include all clients, even those with 0 revenue
 		topClients = append(topClients, TopClientData{
 			Name:    client.Name,
-			Revenue: totalRevenuePrimary,
+			Revenue: totalRevenueUSD,
 		})
 	}
 
@@ -350,41 +235,18 @@ func getRecentInvoices(c *fiber.Ctx) error {
 func getReportsSummary(c *fiber.Ctx) error {
 	var summary ReportsSummaryData
 
-	// Get all invoices for proper currency conversion
+	// Get all invoices and convert to USD
 	var invoices []models.Invoice
 	config.DB.Find(&invoices)
 
-	// Get primary currency
-	currencyCount := make(map[string]int)
-	for _, invoice := range invoices {
-		currency := invoice.CurrencyType
-		if currency == "" {
-			currency = "USD"
-		}
-		currencyCount[currency]++
-	}
+	summary.PrimaryCurrency = "USD" // Always USD
 
-	primaryCurrency := "USD"
-	maxCount := 0
-	for currency, count := range currencyCount {
-		if count > maxCount {
-			maxCount = count
-			primaryCurrency = currency
-		}
-	}
-	summary.PrimaryCurrency = primaryCurrency
-
-	// Calculate totals by converting to USD first
+	// Calculate totals in USD
 	totalRevenueUSD := 0.0
 	totalPaidUSD := 0.0
 
 	for _, invoice := range invoices {
-		currency := invoice.CurrencyType
-		if currency == "" {
-			currency = "USD"
-		}
-		
-		amountUSD := convertToUSD(invoice.Amount, currency)
+		amountUSD := convertToUSD(invoice.Amount, invoice.CurrencyType)
 		totalRevenueUSD += amountUSD
 		
 		if invoice.Status == "paid" {
@@ -392,13 +254,7 @@ func getReportsSummary(c *fiber.Ctx) error {
 		}
 	}
 
-	// Convert to primary currency
-	primaryRate := currencyRates[primaryCurrency]
-	if primaryRate == 0 {
-		primaryRate = 1.0
-	}
-
-	summary.TotalRevenue = totalRevenueUSD / primaryRate
+	summary.TotalRevenue = totalRevenueUSD
 
 	// Calculate collection rate
 	if totalRevenueUSD > 0 {
@@ -413,7 +269,7 @@ func getReportsSummary(c *fiber.Ctx) error {
 		summary.AveragePerClient = summary.TotalRevenue / float64(summary.ClientCount)
 	}
 
-	// Get top client (with currency conversion)
+	// Get top client (in USD)
 	var clients []models.Client
 	if err := config.DB.Find(&clients).Error; err == nil {
 		var topClient TopClientData
@@ -425,18 +281,14 @@ func getReportsSummary(c *fiber.Ctx) error {
 
 			totalRevenueUSD := 0.0
 			for _, invoice := range clientInvoices {
-				currency := invoice.CurrencyType
-				if currency == "" {
-					currency = "USD"
-				}
-				amountUSD := convertToUSD(invoice.Amount, currency)
+				amountUSD := convertToUSD(invoice.Amount, invoice.CurrencyType)
 				totalRevenueUSD += amountUSD
 			}
 
 			if totalRevenueUSD > maxRevenueUSD {
 				maxRevenueUSD = totalRevenueUSD
 				topClient.Name = client.Name
-				topClient.Revenue = totalRevenueUSD / primaryRate // Convert to primary currency
+				topClient.Revenue = totalRevenueUSD
 			}
 		}
 
@@ -444,7 +296,7 @@ func getReportsSummary(c *fiber.Ctx) error {
 		summary.TopClientRevenue = topClient.Revenue
 	}
 
-	// Get top revenue month (with currency conversion)
+	// Get top revenue month (in USD)
 	var paidInvoices []models.Invoice
 	if err := config.DB.Where("status = ?", "paid").Find(&paidInvoices).Error; err == nil {
 		monthlyRevenueUSD := make(map[string]float64)
@@ -453,11 +305,7 @@ func getReportsSummary(c *fiber.Ctx) error {
 			if invoice.InvoiceDate != "" {
 				if invoiceTime, err := time.Parse("2006-01-02", invoice.InvoiceDate); err == nil {
 					monthKey := invoiceTime.Format("2006-01")
-					currency := invoice.CurrencyType
-					if currency == "" {
-						currency = "USD"
-					}
-					amountUSD := convertToUSD(invoice.Amount, currency)
+					amountUSD := convertToUSD(invoice.Amount, invoice.CurrencyType)
 					monthlyRevenueUSD[monthKey] += amountUSD
 				}
 			}
@@ -485,83 +333,4 @@ func getReportsSummary(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(summary)
-}
-
-func getCollectionRate(c *fiber.Ctx) error {
-	// Get all invoices for proper currency conversion
-	var invoices []models.Invoice
-	config.DB.Find(&invoices)
-
-	totalInvoicedUSD := 0.0
-	totalPaidUSD := 0.0
-
-	for _, invoice := range invoices {
-		currency := invoice.CurrencyType
-		if currency == "" {
-			currency = "USD"
-		}
-		
-		amountUSD := convertToUSD(invoice.Amount, currency)
-		totalInvoicedUSD += amountUSD
-		
-		if invoice.Status == "paid" {
-			totalPaidUSD += amountUSD
-		}
-	}
-
-	collectionRate := 0.0
-	if totalInvoicedUSD > 0 {
-		collectionRate = (totalPaidUSD / totalInvoicedUSD) * 100
-	}
-
-	return c.JSON(fiber.Map{
-		"collection_rate": collectionRate,
-		"total_invoiced":  totalInvoicedUSD,
-		"total_paid":      totalPaidUSD,
-	})
-}
-
-func getTopRevenueMonth(c *fiber.Ctx) error {
-	var invoices []models.Invoice
-	if err := config.DB.Where("status = ?", "paid").Find(&invoices).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch invoices"})
-	}
-
-	monthlyRevenueUSD := make(map[string]float64)
-	
-	for _, invoice := range invoices {
-		if invoice.InvoiceDate != "" {
-			if invoiceTime, err := time.Parse("2006-01-02", invoice.InvoiceDate); err == nil {
-				monthKey := invoiceTime.Format("2006-01")
-				currency := invoice.CurrencyType
-				if currency == "" {
-					currency = "USD"
-				}
-				amountUSD := convertToUSD(invoice.Amount, currency)
-				monthlyRevenueUSD[monthKey] += amountUSD
-			}
-		}
-	}
-
-	// Find the month with highest revenue
-	maxRevenueUSD := 0.0
-	topMonth := ""
-	for month, revenue := range monthlyRevenueUSD {
-		if revenue > maxRevenueUSD {
-			maxRevenueUSD = revenue
-			topMonth = month
-		}
-	}
-
-	topMonthFormatted := "Current Month"
-	if topMonth != "" {
-		if monthTime, err := time.Parse("2006-01", topMonth); err == nil {
-			topMonthFormatted = monthTime.Format("January 2006")
-		}
-	}
-
-	return c.JSON(fiber.Map{
-		"top_month":         topMonthFormatted,
-		"top_month_revenue": maxRevenueUSD,
-	})
 }
