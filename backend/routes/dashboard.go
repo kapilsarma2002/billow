@@ -127,12 +127,11 @@ func getTopClients(c *fiber.Ctx) error {
 			Select("COALESCE(SUM(amount), 0)").
 			Scan(&totalRevenue)
 
-		if totalRevenue > 0 {
-			topClients = append(topClients, TopClientData{
-				Name:    client.Name,
-				Revenue: totalRevenue,
-			})
-		}
+		// Include all clients, even those with 0 revenue
+		topClients = append(topClients, TopClientData{
+			Name:    client.Name,
+			Revenue: totalRevenue,
+		})
 	}
 
 	// Sort by revenue (descending) and limit to top 5

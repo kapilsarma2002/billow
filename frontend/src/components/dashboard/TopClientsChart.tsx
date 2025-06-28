@@ -15,15 +15,60 @@ export const TopClientsChart: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch top clients data
-        const clientsResponse = await axios.get('http://localhost:8080/api/dashboard/top-clients');
-        setTopClientsData(clientsResponse.data || []);
+        // Fetch all clients first
+        const clientsResponse = await axios.get('http://localhost:8080/api/clients');
+        const allClients = clientsResponse.data || [];
 
-        // Fetch primary currency from most recent invoice
-        const invoicesResponse = await axios.get('http://localhost:8080/api/invoices?limit=1');
-        if (invoicesResponse.data && invoicesResponse.data.length > 0) {
-          const mostRecentInvoice = invoicesResponse.data[0];
-          setPrimaryCurrency(mostRecentInvoice.currency_type || 'USD');
+        // Calculate revenue for each client and get top 5
+        const clientsWithRevenue = await Promise.all(
+          allClients.map(async (client: any) => {
+            try {
+              // Get paid invoices for this client
+              const invoicesResponse = await axios.get(`http://localhost:8080/api/invoices`);
+              const allInvoices = invoicesResponse.data || [];
+              
+              const clientInvoices = allInvoices.filter((invoice: any) => 
+                invoice.client_id === client.id && invoice.status === 'paid'
+              );
+              
+              const totalRevenue = clientInvoices.reduce((sum: number, invoice: any) => sum + invoice.amount, 0);
+              
+              return {
+                name: client.name,
+                revenue: totalRevenue
+              };
+            } catch (error) {
+              console.error(`Error fetching invoices for client ${client.name}:`, error);
+              return {
+                name: client.name,
+                revenue: 0
+              };
+            }
+          })
+        );
+
+        // Sort by revenue (descending) and take top 5, but include clients with 0 revenue if needed
+        const sortedClients = clientsWithRevenue.sort((a, b) => b.revenue - a.revenue);
+        const topClients = sortedClients.slice(0, 5);
+
+        // If we have fewer than 5 clients, pad with remaining clients
+        if (topClients.length < 5 && sortedClients.length > topClients.length) {
+          const remainingClients = sortedClients.slice(topClients.length, 5);
+          topClients.push(...remainingClients);
+        }
+
+        setTopClientsData(topClients);
+
+        // Get primary currency from most recent invoice
+        try {
+          const invoicesResponse = await axios.get('http://localhost:8080/api/invoices?limit=1');
+          if (invoicesResponse.data && invoicesResponse.data.length > 0) {
+            const mostRecentInvoice = invoicesResponse.data[0];
+            setPrimaryCurrency(mostRecentInvoice.currency_type || 'USD');
+          }
+        } catch (error) {
+          console.log('No invoices found, using default currency USD');
+          setPrimaryCurrency('USD');
         }
       } catch (error) {
         console.error('Error fetching top clients:', error);
@@ -72,7 +117,7 @@ export const TopClientsChart: React.FC = () => {
     );
   }
 
-  const maxRevenue = Math.max(...topClientsData.map(d => d.revenue));
+  const maxRevenue = Math.max(...topClientsData.map(d => d.revenue), 1); // Ensure at least 1 to avoid division by 0
 
   return (
     <Card className="p-6" variant="glass">
@@ -105,7 +150,7 @@ export const TopClientsChart: React.FC = () => {
               <div className="relative h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div
                   className={`absolute inset-y-0 left-0 bg-gradient-to-r ${gradients[index % gradients.length]} rounded-full transition-all duration-1000 ease-out group-hover:scale-105`}
-                  style={{ width: `${percentage}%` }}
+                  style={{ width: `${Math.max(percentage, 2)}%` }} // Minimum 2% width for visibility
                 >
                   <div className="absolute inset-0 bg-white/20 rounded-full animate-pulse" />
                 </div>

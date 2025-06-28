@@ -51,6 +51,7 @@ const KPICard: React.FC<KPICardProps> = ({ title, value, change, changeType, ico
 
 export const KPICards: React.FC = () => {
   const [kpiData, setKpiData] = useState<KPIData | null>(null);
+  const [previousKpiData, setPreviousKpiData] = useState<KPIData | null>(null);
   const [loading, setLoading] = useState(true);
   const [primaryCurrency, setPrimaryCurrency] = useState('USD');
 
@@ -61,11 +62,26 @@ export const KPICards: React.FC = () => {
         const kpiResponse = await axios.get('http://localhost:8080/api/dashboard/kpi');
         setKpiData(kpiResponse.data);
 
-        // Fetch primary currency from most recent invoice
-        const invoicesResponse = await axios.get('http://localhost:8080/api/invoices?limit=1');
-        if (invoicesResponse.data && invoicesResponse.data.length > 0) {
-          const mostRecentInvoice = invoicesResponse.data[0];
-          setPrimaryCurrency(mostRecentInvoice.currency_type || 'USD');
+        // Fetch previous month KPI data for comparison (simplified - using current data with mock comparison)
+        // In a real implementation, you'd fetch data for the previous period
+        setPreviousKpiData({
+          total_invoiced: kpiResponse.data.total_invoiced * 0.9, // Mock 10% less for previous period
+          total_paid: kpiResponse.data.total_paid * 0.92, // Mock 8% less
+          outstanding: kpiResponse.data.outstanding * 1.03, // Mock 3% more
+          client_count: Math.max(0, kpiResponse.data.client_count - 2) // Mock 2 fewer clients
+        });
+
+        // Get primary currency from settings or default to USD
+        // We'll use a more efficient approach - check if we have any invoices and get currency from there
+        try {
+          const invoicesResponse = await axios.get('http://localhost:8080/api/invoices?limit=1');
+          if (invoicesResponse.data && invoicesResponse.data.length > 0) {
+            const mostRecentInvoice = invoicesResponse.data[0];
+            setPrimaryCurrency(mostRecentInvoice.currency_type || 'USD');
+          }
+        } catch (error) {
+          console.log('No invoices found, using default currency USD');
+          setPrimaryCurrency('USD');
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -84,6 +100,20 @@ export const KPICards: React.FC = () => {
       maximumFractionDigits: 0 
     }).format(amount);
 
+  const calculateChange = (current: number, previous: number): { change: string; changeType: 'positive' | 'negative' } => {
+    if (previous === 0) {
+      return { change: current > 0 ? '+100%' : '0%', changeType: current > 0 ? 'positive' : 'negative' };
+    }
+    
+    const percentChange = ((current - previous) / previous) * 100;
+    const isPositive = percentChange >= 0;
+    
+    return {
+      change: `${isPositive ? '+' : ''}${percentChange.toFixed(1)}%`,
+      changeType: isPositive ? 'positive' : 'negative'
+    };
+  };
+
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -96,7 +126,7 @@ export const KPICards: React.FC = () => {
     );
   }
 
-  if (!kpiData) {
+  if (!kpiData || !previousKpiData) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <Card className="p-6 text-center">
@@ -106,36 +136,41 @@ export const KPICards: React.FC = () => {
     );
   }
 
+  const totalInvoicedChange = calculateChange(kpiData.total_invoiced, previousKpiData.total_invoiced);
+  const totalPaidChange = calculateChange(kpiData.total_paid, previousKpiData.total_paid);
+  const outstandingChange = calculateChange(kpiData.outstanding, previousKpiData.outstanding);
+  const clientCountChange = calculateChange(kpiData.client_count, previousKpiData.client_count);
+
   const cards: KPICardProps[] = [
     {
       title: 'Total Invoiced',
       value: formatCurrency(kpiData.total_invoiced),
-      change: '+12.5%',
-      changeType: 'positive',
+      change: totalInvoicedChange.change,
+      changeType: totalInvoicedChange.changeType,
       icon: <DollarSign className="w-6 h-6 text-white" />,
       gradient: 'bg-gradient-to-r from-blue-600 to-cyan-600'
     },
     {
       title: 'Total Paid',
       value: formatCurrency(kpiData.total_paid),
-      change: '+8.2%',
-      changeType: 'positive',
+      change: totalPaidChange.change,
+      changeType: totalPaidChange.changeType,
       icon: <CheckCircle className="w-6 h-6 text-white" />,
       gradient: 'bg-gradient-to-r from-emerald-600 to-teal-600'
     },
     {
       title: 'Outstanding',
       value: formatCurrency(kpiData.outstanding),
-      change: '-3.1%',
-      changeType: 'negative',
+      change: outstandingChange.change,
+      changeType: outstandingChange.changeType,
       icon: <Clock className="w-6 h-6 text-white" />,
       gradient: 'bg-gradient-to-r from-orange-600 to-red-600'
     },
     {
       title: 'Active Clients',
       value: kpiData.client_count.toString(),
-      change: '+2',
-      changeType: 'positive',
+      change: clientCountChange.change,
+      changeType: clientCountChange.changeType,
       icon: <Users className="w-6 h-6 text-white" />,
       gradient: 'bg-gradient-to-r from-purple-600 to-pink-600'
     }
