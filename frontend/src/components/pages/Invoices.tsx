@@ -1,10 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { invoices } from '../../utils/mockData';
+import { Invoice } from '../../types/index'
+import axios from 'axios';
 import { Search, Filter, Upload, Download, Plus } from 'lucide-react';
 
 export const Invoices: React.FC = () => {
+
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+
+  useEffect(() => {
+
+    const getInvoices = () => {
+      axios.get('http://localhost:8080/api/invoices')
+      .then(res => {
+        console.log('res is: ', res)
+        setInvoices(res.data);
+      })
+    }
+
+    getInvoices();
+  }, []);
+
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid' | 'overdue'>('all');
 
@@ -15,8 +33,8 @@ export const Invoices: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const formatCurrency = (amount: number) => 
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
+  const formatCurrency = (amount: number, currency_type: string) => 
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: `${currency_type}`, maximumFractionDigits: 0 }).format(amount);
 
   const formatDate = (dateString: string) => 
     new Date(dateString).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -109,7 +127,7 @@ export const Invoices: React.FC = () => {
                     <span className="font-medium text-blue-600 dark:text-blue-400">{invoice.id}</span>
                   </td>
                   <td className="py-4 px-6">
-                    <span className="text-gray-700 dark:text-gray-300">{formatDate(invoice.date)}</span>
+                    <span className="text-gray-700 dark:text-gray-300">{formatDate(invoice.invoice_date)}</span>
                   </td>
                   <td className="py-4 px-6">
                     <div className="flex items-center space-x-3">
@@ -121,7 +139,7 @@ export const Invoices: React.FC = () => {
                   </td>
                   <td className="py-4 px-6">
                     <span className="font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(invoice.amount)}
+                      {formatCurrency(invoice.amount, invoice.currency_type)}
                     </span>
                   </td>
                   <td className="py-4 px-6">
@@ -130,7 +148,7 @@ export const Invoices: React.FC = () => {
                     </span>
                   </td>
                   <td className="py-4 px-6">
-                    <span className="text-gray-600 dark:text-gray-400">{formatDate(invoice.dueDate)}</span>
+                    <span className="text-gray-600 dark:text-gray-400">{formatDate(invoice.due_date)}</span>
                   </td>
                   <td className="py-4 px-6">
                     <Button 

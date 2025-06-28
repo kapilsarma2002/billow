@@ -1,10 +1,11 @@
 export interface Invoice {
   id: string;
-  date: string;
   client: string;
+  invoice_date: string;
   amount: number;
+  currency_type: string;
   status: 'paid' | 'unpaid' | 'overdue';
-  dueDate: string;
+  due_date: string;
 }
 
 export interface Client {

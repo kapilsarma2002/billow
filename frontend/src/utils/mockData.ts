@@ -33,43 +33,48 @@ export const topClientsData = [
 export const invoices: Invoice[] = [
   {
     id: 'INV-001',
-    date: '2024-01-15',
+    invoice_date: '2024-01-15',
     client: 'TechCorp Solutions',
     amount: 12500,
+    currency_type: 'USD',
     status: 'paid',
-    dueDate: '2024-02-15'
+    due_date: '2024-02-15'
   },
   {
     id: 'INV-002',
-    date: '2024-01-18',
+    invoice_date: '2024-01-18',
     client: 'Digital Dynamics',
     amount: 8750,
+    currency_type: 'USD',
     status: 'paid',
-    dueDate: '2024-02-18'
+    due_date: '2024-02-18'
   },
   {
     id: 'INV-003',
-    date: '2024-01-22',
+    invoice_date: '2024-01-22',
     client: 'Innovation Labs',
     amount: 15200,
+    currency_type: 'USD',
     status: 'unpaid',
-    dueDate: '2024-02-22'
+    due_date: '2024-02-22'
   },
   {
     id: 'INV-004',
-    date: '2024-01-25',
+    invoice_date: '2024-01-25',
     client: 'Creative Studios',
     amount: 9800,
+    currency_type: 'USD',
     status: 'overdue',
-    dueDate: '2024-02-10'
+    due_date: '2024-02-10'
   },
   {
     id: 'INV-005',
-    date: '2024-01-28',
+    invoice_date: '2024-01-28',
     client: 'Growth Partners',
     amount: 11400,
+    currency_type: 'USD',
     status: 'paid',
-    dueDate: '2024-02-28'
+    due_date: '2024-02-28'
   }
 ];
 
