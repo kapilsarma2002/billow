@@ -14,6 +14,7 @@ func main() {
 
 	// Auto migrate the database
 	config.DB.AutoMigrate(&models.Invoice{})
+	config.DB.AutoMigrate(&models.Client{})
 
 	app := fiber.New()
 
@@ -25,6 +26,7 @@ func main() {
 	}))
 
 	routes.Setup(app)
+	routes.SetupClientRoutes(app)
 
 	app.Listen(":8080")
 }

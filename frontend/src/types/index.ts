@@ -14,13 +14,14 @@ export interface Client {
   id: string;
   name: string;
   email: string;
-  totalInvoiced: number;
-  totalPaid: number;
-  invoiceCount: number;
-  averageInvoice: number;
-  paymentDelay: number;
+  total_invoiced: number;
+  total_paid: number;
+  invoice_count: number;
+  average_invoice: number;
+  payment_delay: number;
   avatar: string;
-  revenueData: number[];
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface KPIData {
@@ -33,4 +34,10 @@ export interface KPIData {
 export interface ChartData {
   month: string;
   revenue: number;
+}
+
+export interface ClientRevenueData {
+  client_id: string;
+  months: number;
+  revenue_data: number[];
 }
