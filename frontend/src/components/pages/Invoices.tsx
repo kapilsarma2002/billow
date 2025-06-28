@@ -316,7 +316,7 @@ export const Invoices: React.FC = () => {
 
       {/* Enhanced Search and Filters */}
       <Card className="p-6" variant="glass">
-        <div className="space-y-4">
+        <div className="space-y-4 dark:text-gray-500">
           {/* Main search bar */}
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
@@ -536,7 +536,7 @@ export const Invoices: React.FC = () => {
         title="Advanced Filters"
         size="lg"
       >
-        <div className="space-y-6">
+        <div className="space-y-6 dark:text-gray-500">
           {/* Header with gradient */}
           <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-blue-200/50 dark:border-blue-500/20">
             <div className="flex items-center space-x-3">
