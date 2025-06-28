@@ -31,6 +31,7 @@ export const Invoices: React.FC = () => {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [newInvoice, setNewInvoice] = useState<NewInvoice>({
     client: '',
     invoice_date: '',
@@ -222,7 +223,7 @@ export const Invoices: React.FC = () => {
     resetForm();
   };
 
-  // CSV Download functionality
+  // CSV Download functionality for all invoices
   const downloadCSV = async () => {
     setIsDownloading(true);
     
@@ -271,6 +272,57 @@ export const Invoices: React.FC = () => {
       console.error('Error downloading CSV:', error);
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  // Single invoice download functionality
+  const downloadSingleInvoice = async (invoice: Invoice) => {
+    setDownloadingInvoiceId(invoice.id);
+    
+    try {
+      // Create CSV content for single invoice
+      const csvHeaders = ['Invoice ID', 'Client', 'Invoice Date', 'Amount', 'Currency', 'Status', 'Due Date', 'Created At'];
+      
+      const csvData = [
+        invoice.id,
+        invoice.client,
+        invoice.invoice_date,
+        invoice.amount,
+        invoice.currency_type || 'USD',
+        invoice.status,
+        invoice.due_date,
+        invoice.created_at ? new Date(invoice.created_at).toISOString().split('T')[0] : ''
+      ];
+
+      // Create CSV content
+      const csvContent = [
+        csvHeaders.join(','),
+        csvData.map(field => 
+          typeof field === 'string' && field.includes(',') ? `"${field}"` : field
+        ).join(',')
+      ].join('\n');
+
+      // Generate filename with invoice ID: {invoice_id}.csv
+      const filename = `${invoice.id}.csv`;
+
+      // Create and download the file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error downloading single invoice:', error);
+    } finally {
+      setDownloadingInvoiceId(null);
     }
   };
 
@@ -516,9 +568,16 @@ export const Invoices: React.FC = () => {
                       <Button 
                         variant="ghost" 
                         size="sm"
+                        onClick={() => downloadSingleInvoice(invoice)}
+                        disabled={downloadingInvoiceId === invoice.id}
                         className="opacity-0 group-hover:opacity-100 transition-all duration-200"
+                        title={`Download ${invoice.id}`}
                       >
-                        <Download className="w-4 h-4" />
+                        {downloadingInvoiceId === invoice.id ? (
+                          <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
                       </Button>
                     </td>
                   </tr>
