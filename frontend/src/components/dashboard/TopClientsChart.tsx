@@ -7,16 +7,26 @@ interface TopClientData {
   revenue: number;
 }
 
+interface KPIData {
+  primary_currency: string;
+}
+
 export const TopClientsChart: React.FC = () => {
   const [topClientsData, setTopClientsData] = useState<TopClientData[]>([]);
+  const [primaryCurrency, setPrimaryCurrency] = useState('USD');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Use the existing top clients API endpoint which is more efficient
-        const clientsResponse = await axios.get('http://localhost:8080/api/dashboard/top-clients');
+        // Fetch top clients and KPI data for currency
+        const [clientsResponse, kpiResponse] = await Promise.all([
+          axios.get('http://localhost:8080/api/dashboard/top-clients'),
+          axios.get('http://localhost:8080/api/dashboard/kpi')
+        ]);
+        
         setTopClientsData(clientsResponse.data || []);
+        setPrimaryCurrency(kpiResponse.data.primary_currency || 'USD');
       } catch (error) {
         console.error('Error fetching top clients:', error);
         setTopClientsData([]);
@@ -28,10 +38,10 @@ export const TopClientsChart: React.FC = () => {
     fetchData();
   }, []);
 
-  const formatCurrency = (amount: number) => 
+  const formatCurrency = (amount: number, currency: string = primaryCurrency) => 
     new Intl.NumberFormat('en-US', { 
       style: 'currency', 
-      currency: 'USD', 
+      currency: currency, 
       maximumFractionDigits: 0 
     }).format(amount);
 
@@ -70,7 +80,7 @@ export const TopClientsChart: React.FC = () => {
     <Card className="p-6" variant="glass">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Top Clients</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">Highest revenue generating clients</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">Highest revenue generating clients (in {primaryCurrency})</p>
       </div>
 
       <div className="space-y-4">
@@ -91,7 +101,7 @@ export const TopClientsChart: React.FC = () => {
                   {client.name}
                 </span>
                 <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
-                  {formatCurrency(client.revenue)}
+                  {formatCurrency(client.revenue, primaryCurrency)}
                 </span>
               </div>
               <div className="relative h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">

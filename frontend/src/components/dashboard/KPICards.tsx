@@ -8,6 +8,7 @@ interface KPIData {
   total_paid: number;
   outstanding: number;
   client_count: number;
+  primary_currency: string;
 }
 
 interface KPICardProps {
@@ -53,7 +54,6 @@ export const KPICards: React.FC = () => {
   const [kpiData, setKpiData] = useState<KPIData | null>(null);
   const [previousKpiData, setPreviousKpiData] = useState<KPIData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [primaryCurrency, setPrimaryCurrency] = useState('USD');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -68,11 +68,9 @@ export const KPICards: React.FC = () => {
           total_invoiced: kpiResponse.data.total_invoiced * 0.9, // Mock 10% less for previous period
           total_paid: kpiResponse.data.total_paid * 0.92, // Mock 8% less
           outstanding: kpiResponse.data.outstanding * 1.03, // Mock 3% more
-          client_count: Math.max(0, kpiResponse.data.client_count - 2) // Mock 2 fewer clients
+          client_count: Math.max(0, kpiResponse.data.client_count - 2), // Mock 2 fewer clients
+          primary_currency: kpiResponse.data.primary_currency
         });
-
-        // Set default currency to USD - no need to fetch invoices for this
-        setPrimaryCurrency('USD');
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -83,7 +81,7 @@ export const KPICards: React.FC = () => {
     fetchData();
   }, []);
 
-  const formatCurrency = (amount: number, currency: string = primaryCurrency) => 
+  const formatCurrency = (amount: number, currency: string = 'USD') => 
     new Intl.NumberFormat('en-US', { 
       style: 'currency', 
       currency: currency, 
@@ -134,7 +132,7 @@ export const KPICards: React.FC = () => {
   const cards: KPICardProps[] = [
     {
       title: 'Total Invoiced',
-      value: formatCurrency(kpiData.total_invoiced),
+      value: formatCurrency(kpiData.total_invoiced, kpiData.primary_currency),
       change: totalInvoicedChange.change,
       changeType: totalInvoicedChange.changeType,
       icon: <DollarSign className="w-6 h-6 text-white" />,
@@ -142,7 +140,7 @@ export const KPICards: React.FC = () => {
     },
     {
       title: 'Total Paid',
-      value: formatCurrency(kpiData.total_paid),
+      value: formatCurrency(kpiData.total_paid, kpiData.primary_currency),
       change: totalPaidChange.change,
       changeType: totalPaidChange.changeType,
       icon: <CheckCircle className="w-6 h-6 text-white" />,
@@ -150,7 +148,7 @@ export const KPICards: React.FC = () => {
     },
     {
       title: 'Outstanding',
-      value: formatCurrency(kpiData.outstanding),
+      value: formatCurrency(kpiData.outstanding, kpiData.primary_currency),
       change: outstandingChange.change,
       changeType: outstandingChange.changeType,
       icon: <Clock className="w-6 h-6 text-white" />,
