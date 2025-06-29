@@ -1,9 +1,12 @@
 import React from 'react';
 import { SignIn } from '@clerk/clerk-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Zap, ArrowLeft } from 'lucide-react';
 
 export const SignInPage: React.FC = () => {
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/dashboard';
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 px-4">
       <div className="max-w-md w-full space-y-8">
@@ -38,7 +41,7 @@ export const SignInPage: React.FC = () => {
           <SignIn 
             routing="path"
             path="/sign-in"
-            redirectUrl="/auth-callback"
+            redirectUrl={from}
             signUpUrl="/sign-up"
             appearance={{
               elements: {

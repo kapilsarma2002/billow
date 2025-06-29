@@ -1,12 +1,16 @@
 import React, { useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader, Zap } from 'lucide-react';
 import axios from 'axios';
 
 export const AuthCallback: React.FC = () => {
   const { user, isLoaded } = useUser();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the intended destination from state, default to dashboard
+  const from = location.state?.from?.pathname || '/dashboard';
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -20,18 +24,18 @@ export const AuthCallback: React.FC = () => {
             profile_image: user.imageUrl
           });
 
-          // Redirect to dashboard
-          navigate('/dashboard');
+          // Redirect to intended destination or dashboard
+          navigate(from, { replace: true });
         } catch (error) {
           console.error('Error syncing user:', error);
           // Still redirect to dashboard even if sync fails
-          navigate('/dashboard');
+          navigate(from, { replace: true });
         }
       }
     };
 
     handleAuthCallback();
-  }, [isLoaded, user, navigate]);
+  }, [isLoaded, user, navigate, from]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950">

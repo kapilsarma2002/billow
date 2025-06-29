@@ -1,9 +1,12 @@
 import React from 'react';
 import { SignUp } from '@clerk/clerk-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Zap, ArrowLeft, Check } from 'lucide-react';
 
 export const SignUpPage: React.FC = () => {
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/dashboard';
+
   const features = [
     "14-day free trial",
     "No credit card required",
@@ -83,7 +86,7 @@ export const SignUpPage: React.FC = () => {
             <SignUp 
               routing="path"
               path="/sign-up"
-              redirectUrl="/auth-callback"
+              redirectUrl={from}
               signInUrl="/sign-in"
               appearance={{
                 elements: {

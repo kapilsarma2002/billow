@@ -13,6 +13,20 @@ import { SignInPage } from './components/auth/SignInPage';
 import { SignUpPage } from './components/auth/SignUpPage';
 import { AuthCallback } from './components/auth/AuthCallback';
 
+// Protected Route Component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <>
+      <SignedIn>
+        {children}
+      </SignedIn>
+      <SignedOut>
+        <Navigate to="/sign-in" replace />
+      </SignedOut>
+    </>
+  );
+};
+
 function App() {
   return (
     <ThemeProvider>
@@ -27,46 +41,51 @@ function App() {
             
             {/* Protected routes */}
             <Route path="/dashboard" element={
-              <SignedIn>
+              <ProtectedRoute>
                 <Layout>
                   <Dashboard />
                 </Layout>
-              </SignedIn>
+              </ProtectedRoute>
             } />
             <Route path="/invoices" element={
-              <SignedIn>
+              <ProtectedRoute>
                 <Layout>
                   <Invoices />
                 </Layout>
-              </SignedIn>
+              </ProtectedRoute>
             } />
             <Route path="/clients" element={
-              <SignedIn>
+              <ProtectedRoute>
                 <Layout>
                   <Clients />
                 </Layout>
-              </SignedIn>
+              </ProtectedRoute>
             } />
             <Route path="/reports" element={
-              <SignedIn>
+              <ProtectedRoute>
                 <Layout>
                   <Reports />
                 </Layout>
-              </SignedIn>
+              </ProtectedRoute>
             } />
             <Route path="/settings" element={
-              <SignedIn>
+              <ProtectedRoute>
                 <Layout>
                   <Settings />
                 </Layout>
-              </SignedIn>
+              </ProtectedRoute>
             } />
             
-            {/* Redirect unauthenticated users */}
+            {/* Catch all route - redirect to sign-in for unauthenticated users */}
             <Route path="*" element={
-              <SignedOut>
-                <Navigate to="/sign-in" replace />
-              </SignedOut>
+              <>
+                <SignedIn>
+                  <Navigate to="/dashboard" replace />
+                </SignedIn>
+                <SignedOut>
+                  <Navigate to="/sign-in" replace />
+                </SignedOut>
+              </>
             } />
           </Routes>
         </div>
