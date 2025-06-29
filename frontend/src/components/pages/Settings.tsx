@@ -17,7 +17,6 @@ import {
   Moon,
   Check,
   Crown,
-  Zap,
   TrendingUp,
   BarChart3,
   Globe,
@@ -31,11 +30,9 @@ import {
   Image,
   Mic,
   Headphones,
-  Star,
   X,
   Save,
-  Loader,
-  Edit3
+  Loader
 } from 'lucide-react';
 
 interface UserProfile {
@@ -131,7 +128,6 @@ export const Settings: React.FC = () => {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [usageMetrics, setUsageMetrics] = useState<UsageMetrics | null>(null);
   const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
-  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsData[]>([]);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>('');
@@ -166,6 +162,25 @@ export const Settings: React.FC = () => {
     };
   };
 
+  // Sync user from Clerk to database
+  const syncUser = async () => {
+    if (!clerkUser?.id) return;
+    
+    try {
+      await axios.post('/api/auth/sync-user', {
+        clerk_id: clerkUser.id,
+        email: clerkUser.primaryEmailAddress?.emailAddress || '',
+        display_name: clerkUser.fullName || clerkUser.firstName || '',
+        profile_image: clerkUser.imageUrl || ''
+      }, {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (error) {
+      console.error('Error syncing user:', error);
+      // Don't throw error here, as user might already exist
+    }
+  };
+
   // Fetch data on component mount
   useEffect(() => {
     // Prevent duplicate API calls in React strict mode
@@ -179,6 +194,10 @@ export const Settings: React.FC = () => {
       
       setLoading(true);
       try {
+        // First sync user from Clerk
+        await syncUser();
+        
+        // Then fetch all settings data
         await Promise.all([
           fetchProfile(),
           fetchSubscription(),
@@ -190,7 +209,11 @@ export const Settings: React.FC = () => {
       } catch (error) {
         if (isMounted) {
           console.error('Error fetching data:', error);
-          showNotification('error', 'Failed to load settings data');
+          if (axios.isAxiosError(error) && error.response?.status === 401) {
+            showNotification('error', 'Authentication failed. Please sign in again.');
+          } else {
+            showNotification('error', 'Failed to load settings data');
+          }
         }
       } finally {
         if (isMounted) {
@@ -220,7 +243,15 @@ export const Settings: React.FC = () => {
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
-      throw error;
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw error; // Re-throw 401 errors to be handled by the main error handler
+      }
+      // For other errors, set default values
+      setProfileForm({
+        display_name: clerkUser?.fullName || clerkUser?.firstName || '',
+        email: clerkUser?.primaryEmailAddress?.emailAddress || '',
+        profile_image: clerkUser?.imageUrl || ''
+      });
     }
   };
 
@@ -232,7 +263,11 @@ export const Settings: React.FC = () => {
       setSubscription(response.data.subscription);
     } catch (error) {
       console.error('Error fetching subscription:', error);
-      throw error;
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw error;
+      }
+      // Set default subscription data
+      setSubscription(null);
     }
   };
 
@@ -244,7 +279,11 @@ export const Settings: React.FC = () => {
       setUsageMetrics(response.data);
     } catch (error) {
       console.error('Error fetching usage metrics:', error);
-      throw error;
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw error;
+      }
+      // Set default usage metrics
+      setUsageMetrics(null);
     }
   };
 
@@ -262,7 +301,10 @@ export const Settings: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching plans:', error);
-      throw error;
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw error;
+      }
+      setAvailablePlans([]);
     }
   };
 
@@ -271,11 +313,13 @@ export const Settings: React.FC = () => {
       const response = await axios.get('/api/settings/preferences', {
         headers: getAuthHeaders()
       });
-      setPreferences(response.data);
       setPreferencesForm(response.data);
     } catch (error) {
       console.error('Error fetching preferences:', error);
-      throw error;
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw error;
+      }
+      // Keep default preferences form values
     }
   };
 
@@ -292,7 +336,10 @@ export const Settings: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching analytics:', error);
-      throw error;
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        throw error;
+      }
+      setAnalytics([]);
     }
   };
 
@@ -316,10 +363,9 @@ export const Settings: React.FC = () => {
   const updatePreferences = async () => {
     setLoading(true);
     try {
-      const response = await axios.post('/api/settings/preferences', preferencesForm, {
+      await axios.post('/api/settings/preferences', preferencesForm, {
         headers: getAuthHeaders()
       });
-      setPreferences(response.data.preferences);
       showNotification('success', 'Preferences updated successfully');
     } catch (error) {
       console.error('Error updating preferences:', error);
@@ -490,7 +536,7 @@ export const Settings: React.FC = () => {
                     <input
                       type="email"
                       value={profileForm.email}
-                      onChange={(e) => set ProfileForm(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
                       className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       placeholder="Enter your email"
                     />
@@ -542,11 +588,11 @@ export const Settings: React.FC = () => {
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Current Plan</h3>
                   </div>
                   <Button variant="secondary" onClick={() => setIsUpgradeModalOpen(true)}>
-                    Upgrade Plan
+                    {subscription ? 'Upgrade Plan' : 'Choose Plan'}
                   </Button>
                 </div>
 
-                {subscription && (
+                {subscription ? (
                   <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl">
                     <div className="flex items-center justify-between mb-4">
                       <div>
@@ -602,11 +648,24 @@ export const Settings: React.FC = () => {
                       </div>
                     </div>
                   </div>
+                ) : (
+                  <div className="p-6 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-900/20 dark:to-blue-900/20 rounded-xl text-center">
+                    <div className="mb-4">
+                      <Crown className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Active Plan</h4>
+                      <p className="text-gray-600 dark:text-gray-400 mb-4">
+                        Choose a plan to unlock all features and start creating invoices
+                      </p>
+                    </div>
+                    <Button variant="gradient" onClick={() => setIsUpgradeModalOpen(true)}>
+                      Choose Your Plan
+                    </Button>
+                  </div>
                 )}
               </Card>
 
               {/* Usage Metrics */}
-              {usageMetrics && (
+              {usageMetrics ? (
                 <Card className="p-6" variant="glass">
                   <div className="flex items-center space-x-3 mb-6">
                     <div className="p-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600">
@@ -690,6 +749,25 @@ export const Settings: React.FC = () => {
                         <p className="text-xs text-gray-600 dark:text-gray-400">Support</p>
                         <p className="text-sm font-medium">{usageMetrics.limits?.priority_support ? 'Priority' : 'Standard'}</p>
                       </div>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <Card className="p-6" variant="glass">
+                  <div className="flex items-center space-x-3 mb-6">
+                    <div className="p-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600">
+                      <TrendingUp className="w-5 h-5 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Usage This Month</h3>
+                  </div>
+                  
+                  <div className="p-6 bg-gradient-to-r from-gray-50 to-orange-50 dark:from-gray-900/20 dark:to-orange-900/20 rounded-xl text-center">
+                    <div className="mb-4">
+                      <TrendingUp className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Usage Data</h4>
+                      <p className="text-gray-600 dark:text-gray-400">
+                        Usage metrics will appear here once you start using the platform
+                      </p>
                     </div>
                   </div>
                 </Card>

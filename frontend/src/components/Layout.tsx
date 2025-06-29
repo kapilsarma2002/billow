@@ -85,27 +85,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
           </div>
 
-          {/* User Info */}
-          <div className="px-6 py-4 border-b border-gray-200/50 dark:border-gray-700/50">
-            <div className="flex items-center space-x-3">
-              <UserButton 
-                appearance={{
-                  elements: {
-                    avatarBox: "w-10 h-10"
-                  }
-                }}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {user?.fullName || user?.firstName || 'User'}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {user?.primaryEmailAddress?.emailAddress}
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-2">
             {navItems.map((item) => (
@@ -125,6 +104,27 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </button>
             ))}
           </nav>
+
+          {/* User Info - Moved to bottom */}
+          <div className="px-6 py-4 border-t border-gray-200/50 dark:border-gray-700/50">
+            <div className="flex items-center space-x-3">
+              <UserButton 
+                appearance={{
+                  elements: {
+                    avatarBox: "w-10 h-10"
+                  }
+                }}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  {user?.fullName || user?.firstName || 'User'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {user?.primaryEmailAddress?.emailAddress}
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* Theme toggle */}
           <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50">

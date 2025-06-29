@@ -4,6 +4,8 @@ import (
 	"billow-backend/config"
 	"billow-backend/middleware"
 	"billow-backend/models"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -188,45 +190,45 @@ func getAvailablePlans(c *fiber.Ctx) error {
 	plansWithFeatures := make([]map[string]interface{}, len(plans))
 	for i, plan := range plans {
 		features := []string{}
-		
+
 		if plan.InvoiceLimit == -1 {
 			features = append(features, "Unlimited invoices")
 		} else {
 			features = append(features, fmt.Sprintf("Up to %d invoices/month", plan.InvoiceLimit))
 		}
-		
+
 		if plan.ClientLimit == -1 {
 			features = append(features, "Unlimited clients")
 		} else {
 			features = append(features, fmt.Sprintf("Up to %d clients", plan.ClientLimit))
 		}
-		
+
 		if plan.MessagesPerDay == -1 {
 			features = append(features, "Unlimited messages")
 		} else {
 			features = append(features, fmt.Sprintf("%d messages/day", plan.MessagesPerDay))
 		}
-		
+
 		if plan.ImageGeneration {
 			features = append(features, "AI image generation")
 		}
-		
+
 		if plan.CustomVoice {
 			features = append(features, "Custom voice cloning")
 		}
-		
+
 		if plan.PrioritySupport {
 			features = append(features, "Priority support")
 		}
-		
+
 		if plan.AdvancedAnalytics {
 			features = append(features, "Advanced analytics")
 		}
-		
+
 		if plan.APIAccess {
 			features = append(features, "API access")
 		}
-		
+
 		if plan.WhiteLabel {
 			features = append(features, "White-label branding")
 		}
@@ -450,10 +452,5 @@ func getAnalyticsDashboard(c *fiber.Ctx) error {
 
 // Helper functions
 func contains(s, substr string) bool {
-	for i := 0; i <= len(s)-substr; i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(s, substr)
 }

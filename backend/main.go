@@ -16,6 +16,10 @@ func main() {
 	fmt.Println("Starting Billow backend...")
 	config.ConnectDatabase()
 
+	// Clear existing data to avoid foreign key constraint issues
+	// This ensures a clean slate for auto-migration
+	//clearExistingData()
+
 	// Auto migrate the database with proper relationships
 	// GORM will handle foreign key constraints automatically
 	config.DB.AutoMigrate(&models.User{})
@@ -52,6 +56,22 @@ func main() {
 	if err := app.Listen(":8080"); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
+}
+
+func clearExistingData() {
+	fmt.Println("Clearing existing data to ensure clean migration...")
+
+	// Delete data in the correct order to respect foreign key constraints
+	config.DB.Exec("DELETE FROM analytics_data")
+	config.DB.Exec("DELETE FROM usage_logs")
+	config.DB.Exec("DELETE FROM user_preferences")
+	config.DB.Exec("DELETE FROM subscriptions")
+	config.DB.Exec("DELETE FROM invoices")
+	config.DB.Exec("DELETE FROM clients")
+	config.DB.Exec("DELETE FROM users")
+
+	// Keep plans as they are seeded data
+	fmt.Println("Existing data cleared successfully")
 }
 
 func seedDefaultPlans() {
