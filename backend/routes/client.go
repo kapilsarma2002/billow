@@ -2,6 +2,7 @@ package routes
 
 import (
 	"billow-backend/config"
+	"billow-backend/middleware"
 	"billow-backend/models"
 	"strconv"
 
@@ -9,22 +10,31 @@ import (
 )
 
 func SetupClientRoutes(app *fiber.App) {
-	app.Post("/api/clients", createClient)
-	app.Get("/api/clients", getClients)
-	app.Get("/api/clients/:id", getClient)
-	app.Put("/api/clients/:id", updateClient)
-	app.Delete("/api/clients/:id", deleteClient)
-	app.Get("/api/clients/:id/revenue-data", getClientRevenueData)
+	// Apply auth middleware to all client routes
+	clients := app.Group("/api/clients", middleware.AuthMiddleware())
+	
+	clients.Post("/", createClient)
+	clients.Get("/", getClients)
+	clients.Get("/:id", getClient)
+	clients.Put("/:id", updateClient)
+	clients.Delete("/:id", deleteClient)
+	clients.Get("/:id/revenue-data", getClientRevenueData)
 }
 
 func createClient(c *fiber.Ctx) error {
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+
 	client := new(models.Client)
 	if err := c.BodyParser(client); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	// Generate unique client ID
+	// Generate unique client ID and set user ID
 	client.ID = models.GenerateClientID()
+	client.UserID = userID
 
 	// Calculate average invoice if invoice count > 0
 	if client.InvoiceCount > 0 {
@@ -39,12 +49,17 @@ func createClient(c *fiber.Ctx) error {
 }
 
 func getClients(c *fiber.Ctx) error {
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+
 	var clients []models.Client
 	
 	// Get query parameters for search and filtering
 	search := c.Query("search", "")
 	
-	query := config.DB.Order("created_at DESC")
+	query := config.DB.Where("user_id = ?", userID).Order("created_at DESC")
 	
 	if search != "" {
 		query = query.Where("name ILIKE ? OR email ILIKE ?", "%"+search+"%", "%"+search+"%")
@@ -63,10 +78,15 @@ func getClients(c *fiber.Ctx) error {
 }
 
 func getClient(c *fiber.Ctx) error {
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+
 	id := c.Params("id")
 	var client models.Client
 
-	if err := config.DB.First(&client, "id = ?", id).Error; err != nil {
+	if err := config.DB.Where("id = ? AND user_id = ?", id, userID).First(&client).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Client not found"})
 	}
 
@@ -77,16 +97,24 @@ func getClient(c *fiber.Ctx) error {
 }
 
 func updateClient(c *fiber.Ctx) error {
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+
 	id := c.Params("id")
 	var client models.Client
 
-	if err := config.DB.First(&client, "id = ?", id).Error; err != nil {
+	if err := config.DB.Where("id = ? AND user_id = ?", id, userID).First(&client).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Client not found"})
 	}
 
 	if err := c.BodyParser(&client); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
+
+	// Ensure user ID doesn't change
+	client.UserID = userID
 
 	// Recalculate average invoice
 	if client.InvoiceCount > 0 {
@@ -101,17 +129,22 @@ func updateClient(c *fiber.Ctx) error {
 }
 
 func deleteClient(c *fiber.Ctx) error {
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+
 	id := c.Params("id")
 	
 	// Check if client has invoices
 	var invoiceCount int64
-	config.DB.Model(&models.Invoice{}).Where("client_id = ?", id).Count(&invoiceCount)
+	config.DB.Model(&models.Invoice{}).Where("client_id = ? AND user_id = ?", id, userID).Count(&invoiceCount)
 	
 	if invoiceCount > 0 {
 		return c.Status(400).JSON(fiber.Map{"error": "Cannot delete client with existing invoices"})
 	}
 	
-	if err := config.DB.Delete(&models.Client{}, "id = ?", id).Error; err != nil {
+	if err := config.DB.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Client{}).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete client"})
 	}
 
@@ -119,6 +152,11 @@ func deleteClient(c *fiber.Ctx) error {
 }
 
 func getClientRevenueData(c *fiber.Ctx) error {
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+
 	id := c.Params("id")
 	months := c.Query("months", "7") // Default to 7 months
 	
@@ -129,7 +167,7 @@ func getClientRevenueData(c *fiber.Ctx) error {
 
 	// Get actual revenue data from paid invoices
 	var invoices []models.Invoice
-	if err := config.DB.Where("client_id = ? AND status = 'paid'", id).
+	if err := config.DB.Where("client_id = ? AND user_id = ? AND status = 'paid'", id, userID).
 		Order("invoice_date DESC").
 		Limit(monthsInt).
 		Find(&invoices).Error; err != nil {
@@ -159,7 +197,7 @@ func getClientRevenueData(c *fiber.Ctx) error {
 // Helper function to update client statistics based on their invoices
 func updateClientStatistics(client *models.Client) {
 	var invoices []models.Invoice
-	config.DB.Where("client_id = ?", client.ID).Find(&invoices)
+	config.DB.Where("client_id = ? AND user_id = ?", client.ID, client.UserID).Find(&invoices)
 
 	totalInvoiced := 0.0
 	totalPaid := 0.0

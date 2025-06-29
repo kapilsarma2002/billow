@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
-import { Invoice } from '../../types/index'
+import { Invoice, Client } from '../../types/index'
 import axios from 'axios';
-import { Search, Filter, Upload, Download, Plus, Calendar, DollarSign, User, FileText, X, SlidersHorizontal } from 'lucide-react';
+import { Search, Filter, Upload, Download, Plus, Calendar, DollarSign, User, FileText, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
 
 interface NewInvoice {
-  client_name: string; // Changed to match backend expectation
+  client_id: string; // Changed to use client ID instead of name
   invoice_date: string;
   amount: number;
   currency_type: string;
@@ -26,14 +27,16 @@ interface SearchFilters {
 }
 
 export const Invoices: React.FC = () => {
+  const { user: clerkUser } = useUser();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [newInvoice, setNewInvoice] = useState<NewInvoice>({
-    client_name: '', // Changed from client to client_name
+    client_id: '',
     invoice_date: '',
     amount: 0,
     currency_type: 'USD',
@@ -51,10 +54,20 @@ export const Invoices: React.FC = () => {
     amountMax: ''
   });
 
-  // Fetch invoices function
+  // Configure axios to use Clerk ID
+  const getAuthHeaders = () => {
+    return {
+      'X-Clerk-ID': clerkUser?.id || '',
+      'Content-Type': 'application/json'
+    };
+  };
+
+  // Fetch invoices and clients
   const fetchInvoices = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/invoices');
+      const response = await axios.get('/api/invoices', {
+        headers: getAuthHeaders()
+      });
       setInvoices(response.data || []);
     } catch (error) {
       console.error('Error fetching invoices:', error);
@@ -62,10 +75,25 @@ export const Invoices: React.FC = () => {
     }
   };
 
-  // Fetch invoices only once on component mount
+  const fetchClients = async () => {
+    try {
+      const response = await axios.get('/api/clients', {
+        headers: getAuthHeaders()
+      });
+      setClients(response.data || []);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      setClients([]);
+    }
+  };
+
+  // Fetch data on component mount
   useEffect(() => {
-    fetchInvoices();
-  }, []);
+    if (clerkUser?.id) {
+      fetchInvoices();
+      fetchClients();
+    }
+  }, [clerkUser?.id]);
 
   // Enhanced filtering logic
   const filteredInvoices = invoices.filter(invoice => {
@@ -183,17 +211,24 @@ export const Invoices: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    if (!newInvoice.client_id) {
+      alert('Please select a client');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await axios.post('http://localhost:8080/api/invoices', newInvoice);
+      await axios.post('/api/invoices', newInvoice, {
+        headers: getAuthHeaders()
+      });
       
       // Refresh the invoices list
       await fetchInvoices();
       
       // Reset form and close modal
       setNewInvoice({
-        client_name: '',
+        client_id: '',
         invoice_date: '',
         amount: 0,
         currency_type: 'USD',
@@ -203,6 +238,7 @@ export const Invoices: React.FC = () => {
       setIsAddModalOpen(false);
     } catch (error) {
       console.error('Error creating invoice:', error);
+      alert('Failed to create invoice. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -210,7 +246,7 @@ export const Invoices: React.FC = () => {
 
   const resetForm = () => {
     setNewInvoice({
-      client_name: '',
+      client_id: '',
       invoice_date: '',
       amount: 0,
       currency_type: 'USD',
@@ -325,6 +361,13 @@ export const Invoices: React.FC = () => {
     } finally {
       setDownloadingInvoiceId(null);
     }
+  };
+
+  // Get selected client name for display
+  const getSelectedClientName = () => {
+    if (!newInvoice.client_id) return 'Select a client';
+    const client = clients.find(c => c.id === newInvoice.client_id);
+    return client ? client.name : 'Select a client';
   };
 
   return (
@@ -753,20 +796,33 @@ export const Invoices: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Client Name */}
+            {/* Client Dropdown */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <User className="w-4 h-4 inline mr-2" />
-                Client Name
+                Client
               </label>
-              <input
-                type="text"
-                required
-                value={newInvoice.client_name}
-                onChange={(e) => handleInputChange('client_name', e.target.value)}
-                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                placeholder="Enter client name"
-              />
+              <div className="relative">
+                <select
+                  value={newInvoice.client_id}
+                  onChange={(e) => handleInputChange('client_id', e.target.value)}
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors appearance-none"
+                  required
+                >
+                  <option value="">Select a client</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name} {client.email && `(${client.email})`}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+              </div>
+              {clients.length === 0 && (
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                  No clients found. Please add a client first.
+                </p>
+              )}
             </div>
 
             {/* Amount */}
@@ -865,7 +921,7 @@ export const Invoices: React.FC = () => {
             </Button>
             <Button
               variant="gradient"
-              disabled={isLoading}
+              disabled={isLoading || !newInvoice.client_id}
               className="min-w-[120px]"
               onClick={handleSubmit}
             >

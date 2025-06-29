@@ -2,6 +2,7 @@ package routes
 
 import (
 	"billow-backend/config"
+	"billow-backend/middleware"
 	"billow-backend/models"
 	"strconv"
 	"time"
@@ -10,11 +11,14 @@ import (
 )
 
 func SetupDashboardRoutes(app *fiber.App) {
-	app.Get("/api/dashboard/kpi", getDashboardKPI)
-	app.Get("/api/dashboard/revenue-chart", getRevenueChart)
-	app.Get("/api/dashboard/top-clients", getTopClients)
-	app.Get("/api/dashboard/recent-invoices", getRecentInvoices)
-	app.Get("/api/dashboard/reports-summary", getReportsSummary)
+	// Apply auth middleware to all dashboard routes
+	dashboard := app.Group("/api/dashboard", middleware.AuthMiddleware())
+	
+	dashboard.Get("/kpi", getDashboardKPI)
+	dashboard.Get("/revenue-chart", getRevenueChart)
+	dashboard.Get("/top-clients", getTopClients)
+	dashboard.Get("/recent-invoices", getRecentInvoices)
+	dashboard.Get("/reports-summary", getReportsSummary)
 }
 
 // Currency conversion rates to USD (updated regularly in production)
@@ -76,11 +80,16 @@ type ReportsSummaryData struct {
 }
 
 func getDashboardKPI(c *fiber.Ctx) error {
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+
 	var kpi KPIData
 
-	// Get all invoices and convert to USD
+	// Get all invoices for the user and convert to USD
 	var invoices []models.Invoice
-	config.DB.Find(&invoices)
+	config.DB.Where("user_id = ?", userID).Find(&invoices)
 
 	totalInvoicedUSD := 0.0
 	totalPaidUSD := 0.0
@@ -100,18 +109,23 @@ func getDashboardKPI(c *fiber.Ctx) error {
 	kpi.Outstanding = totalInvoicedUSD - totalPaidUSD
 	kpi.PrimaryCurrency = "USD" // Always USD
 
-	// Get client count
-	config.DB.Model(&models.Client{}).Count(&kpi.ClientCount)
+	// Get client count for the user
+	config.DB.Model(&models.Client{}).Where("user_id = ?", userID).Count(&kpi.ClientCount)
 
 	return c.JSON(kpi)
 }
 
 func getRevenueChart(c *fiber.Ctx) error {
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+
 	var revenueData []RevenueChartData
 
-	// Get all paid invoices
+	// Get all paid invoices for the user
 	var invoices []models.Invoice
-	if err := config.DB.Where("status = ?", "paid").
+	if err := config.DB.Where("user_id = ? AND status = ?", userID, "paid").
 		Order("invoice_date DESC").
 		Find(&invoices).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch revenue data"})
@@ -162,18 +176,23 @@ func getRevenueChart(c *fiber.Ctx) error {
 }
 
 func getTopClients(c *fiber.Ctx) error {
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+
 	var topClients []TopClientData
 
-	// Get all clients
+	// Get all clients for the user
 	var clients []models.Client
-	if err := config.DB.Find(&clients).Error; err != nil {
+	if err := config.DB.Where("user_id = ?", userID).Find(&clients).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch clients"})
 	}
 
 	// Calculate revenue for each client in USD
 	for _, client := range clients {
 		var clientInvoices []models.Invoice
-		config.DB.Where("client_id = ? AND status = ?", client.ID, "paid").Find(&clientInvoices)
+		config.DB.Where("client_id = ? AND user_id = ? AND status = ?", client.ID, userID, "paid").Find(&clientInvoices)
 
 		totalRevenueUSD := 0.0
 		for _, invoice := range clientInvoices {
@@ -206,6 +225,11 @@ func getTopClients(c *fiber.Ctx) error {
 }
 
 func getRecentInvoices(c *fiber.Ctx) error {
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+
 	var invoices []models.Invoice
 
 	// Get limit from query parameter, default to 5
@@ -215,7 +239,7 @@ func getRecentInvoices(c *fiber.Ctx) error {
 		limit = 5
 	}
 
-	if err := config.DB.Preload("Client").
+	if err := config.DB.Where("user_id = ?", userID).Preload("Client").
 		Order("created_at DESC").
 		Limit(limit).
 		Find(&invoices).Error; err != nil {
@@ -233,11 +257,16 @@ func getRecentInvoices(c *fiber.Ctx) error {
 }
 
 func getReportsSummary(c *fiber.Ctx) error {
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+
 	var summary ReportsSummaryData
 
-	// Get all invoices and convert to USD
+	// Get all invoices for the user and convert to USD
 	var invoices []models.Invoice
-	config.DB.Find(&invoices)
+	config.DB.Where("user_id = ?", userID).Find(&invoices)
 
 	summary.PrimaryCurrency = "USD" // Always USD
 
@@ -261,23 +290,23 @@ func getReportsSummary(c *fiber.Ctx) error {
 		summary.CollectionRate = (totalPaidUSD / totalRevenueUSD) * 100
 	}
 
-	// Get client count
-	config.DB.Model(&models.Client{}).Count(&summary.ClientCount)
+	// Get client count for the user
+	config.DB.Model(&models.Client{}).Where("user_id = ?", userID).Count(&summary.ClientCount)
 
 	// Calculate average per client
 	if summary.ClientCount > 0 {
 		summary.AveragePerClient = summary.TotalRevenue / float64(summary.ClientCount)
 	}
 
-	// Get top client (in USD)
+	// Get top client (in USD) for the user
 	var clients []models.Client
-	if err := config.DB.Find(&clients).Error; err == nil {
+	if err := config.DB.Where("user_id = ?", userID).Find(&clients).Error; err == nil {
 		var topClient TopClientData
 		maxRevenueUSD := 0.0
 
 		for _, client := range clients {
 			var clientInvoices []models.Invoice
-			config.DB.Where("client_id = ? AND status = ?", client.ID, "paid").Find(&clientInvoices)
+			config.DB.Where("client_id = ? AND user_id = ? AND status = ?", client.ID, userID, "paid").Find(&clientInvoices)
 
 			totalRevenueUSD := 0.0
 			for _, invoice := range clientInvoices {
@@ -296,9 +325,9 @@ func getReportsSummary(c *fiber.Ctx) error {
 		summary.TopClientRevenue = topClient.Revenue
 	}
 
-	// Get top revenue month (in USD)
+	// Get top revenue month (in USD) for the user
 	var paidInvoices []models.Invoice
-	if err := config.DB.Where("status = ?", "paid").Find(&paidInvoices).Error; err == nil {
+	if err := config.DB.Where("user_id = ? AND status = ?", userID, "paid").Find(&paidInvoices).Error; err == nil {
 		monthlyRevenueUSD := make(map[string]float64)
 		
 		for _, invoice := range paidInvoices {

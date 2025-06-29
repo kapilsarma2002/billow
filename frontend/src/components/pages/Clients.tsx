@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
@@ -17,6 +18,7 @@ interface NewClient {
 }
 
 export const Clients: React.FC = () => {
+  const { user: clerkUser } = useUser();
   const [clients, setClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -34,11 +36,22 @@ export const Clients: React.FC = () => {
     avatar: ''
   });
 
+  // Configure axios to use Clerk ID
+  const getAuthHeaders = () => {
+    return {
+      'X-Clerk-ID': clerkUser?.id || '',
+      'Content-Type': 'application/json'
+    };
+  };
+
   // Fetch clients function
   const fetchClients = async (search?: string) => {
     try {
       const params = search ? { search } : {};
-      const response = await axios.get('http://localhost:8080/api/clients', { params });
+      const response = await axios.get('/api/clients', { 
+        params,
+        headers: getAuthHeaders()
+      });
       setClients(response.data || []);
     } catch (error) {
       console.error('Error fetching clients:', error);
@@ -48,12 +61,14 @@ export const Clients: React.FC = () => {
 
   // Single effect to handle initial load and debounced search
   useEffect(() => {
+    if (!clerkUser?.id) return;
+    
     const timeoutId = setTimeout(() => {
       fetchClients(searchTerm || undefined);
     }, searchTerm ? 300 : 0); // No delay for initial load, 300ms for search
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  }, [searchTerm, clerkUser?.id]);
 
   // Always format as USD since all calculations are done in USD on backend
   const formatCurrency = (amount: number) => 
@@ -65,7 +80,9 @@ export const Clients: React.FC = () => {
     
     // Fetch revenue data for the client (already in USD from backend)
     try {
-      const response = await axios.get<ClientRevenueData>(`http://localhost:8080/api/clients/${client.id}/revenue-data`);
+      const response = await axios.get<ClientRevenueData>(`/api/clients/${client.id}/revenue-data`, {
+        headers: getAuthHeaders()
+      });
       setRevenueData(response.data.revenue_data);
     } catch (error) {
       console.error('Error fetching revenue data:', error);
@@ -92,7 +109,9 @@ export const Clients: React.FC = () => {
         avatar: newClient.avatar || avatarUrl
       };
 
-      await axios.post('http://localhost:8080/api/clients', clientData);
+      await axios.post('/api/clients', clientData, {
+        headers: getAuthHeaders()
+      });
       
       // Refresh the clients list
       await fetchClients();
@@ -102,6 +121,7 @@ export const Clients: React.FC = () => {
       setIsAddModalOpen(false);
     } catch (error) {
       console.error('Error creating client:', error);
+      alert('Failed to create client. Please try again.');
     } finally {
       setIsLoading(false);
     }
