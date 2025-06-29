@@ -16,6 +16,9 @@ export interface Client {
   id: string;
   name: string;
   email: string;
+  phone?: string;
+  company?: string;
+  address?: string;
   total_invoiced: number;
   total_paid: number;
   invoice_count: number;

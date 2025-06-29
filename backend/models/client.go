@@ -9,6 +9,9 @@ type Client struct {
 	UserID         string    `json:"user_id" gorm:"type:varchar(30);not null;index"`
 	Name           string    `json:"name"`
 	Email          string    `json:"email"`
+	Phone          string    `json:"phone"`
+	Company        string    `json:"company"`
+	Address        string    `json:"address"`
 	TotalInvoiced  float64   `json:"total_invoiced"`
 	TotalPaid      float64   `json:"total_paid"`
 	InvoiceCount   int       `json:"invoice_count"`

@@ -5,7 +5,7 @@ import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Invoice, Client } from '../../types/index'
 import axios from 'axios';
-import { Search, Filter, Upload, Download, Plus, Calendar, DollarSign, User, FileText, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { Search, Filter, Upload, Download, Plus, Calendar, DollarSign, User, FileText, X, SlidersHorizontal, ChevronDown, AlertCircle } from 'lucide-react';
 
 interface NewInvoice {
   client_id: string; // Changed to use client ID instead of name
@@ -35,6 +35,7 @@ export const Invoices: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [newInvoice, setNewInvoice] = useState<NewInvoice>({
     client_id: '',
     invoice_date: '',
@@ -210,13 +211,34 @@ export const Invoices: React.FC = () => {
     return count;
   };
 
+  const showError = (message: string) => {
+    setError(message);
+    setTimeout(() => setError(null), 5000);
+  };
+
   const handleSubmit = async () => {
     if (!newInvoice.client_id) {
-      alert('Please select a client');
+      showError('Please select a client');
+      return;
+    }
+
+    if (!newInvoice.invoice_date) {
+      showError('Please select an invoice date');
+      return;
+    }
+
+    if (!newInvoice.due_date) {
+      showError('Please select a due date');
+      return;
+    }
+
+    if (newInvoice.amount <= 0) {
+      showError('Please enter a valid amount');
       return;
     }
 
     setIsLoading(true);
+    setError(null);
 
     try {
       await axios.post('/api/invoices', newInvoice, {
@@ -238,7 +260,7 @@ export const Invoices: React.FC = () => {
       setIsAddModalOpen(false);
     } catch (error) {
       console.error('Error creating invoice:', error);
-      alert('Failed to create invoice. Please try again.');
+      showError('Failed to create invoice. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -258,6 +280,7 @@ export const Invoices: React.FC = () => {
   const handleModalClose = () => {
     setIsAddModalOpen(false);
     resetForm();
+    setError(null);
   };
 
   // CSV Download functionality for all invoices
@@ -307,6 +330,7 @@ export const Invoices: React.FC = () => {
       }
     } catch (error) {
       console.error('Error downloading CSV:', error);
+      showError('Failed to download CSV. Please try again.');
     } finally {
       setIsDownloading(false);
     }
@@ -358,6 +382,7 @@ export const Invoices: React.FC = () => {
       }
     } catch (error) {
       console.error('Error downloading single invoice:', error);
+      showError('Failed to download invoice. Please try again.');
     } finally {
       setDownloadingInvoiceId(null);
     }
@@ -372,6 +397,19 @@ export const Invoices: React.FC = () => {
 
   return (
     <div className="space-y-8">
+      {/* Error notification */}
+      {error && (
+        <div className="fixed top-4 right-4 z-50 p-4 bg-red-100 border border-red-200 text-red-800 rounded-lg shadow-lg max-w-md">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-5 h-5" />
+            <span>{error}</span>
+            <button onClick={() => setError(null)}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
