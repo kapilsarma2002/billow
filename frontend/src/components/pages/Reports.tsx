@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Download, Trophy, Clock, TrendingUp, Calendar } from 'lucide-react';
@@ -25,15 +26,28 @@ interface ReportData {
 }
 
 export const Reports: React.FC = () => {
+  const { user: clerkUser } = useUser();
   const [summaryData, setSummaryData] = useState<ReportsSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloadingReport, setDownloadingReport] = useState<string | null>(null);
 
+  // Configure axios to use Clerk ID
+  const getAuthHeaders = () => {
+    return {
+      'X-Clerk-ID': clerkUser?.id || '',
+      'Content-Type': 'application/json'
+    };
+  };
+
   useEffect(() => {
+    if (!clerkUser?.id) return;
+
     const fetchData = async () => {
       try {
         // Fetch reports summary (all amounts already in USD from backend)
-        const summaryResponse = await axios.get('http://localhost:8080/api/dashboard/reports-summary');
+        const summaryResponse = await axios.get('/api/dashboard/reports-summary', {
+          headers: getAuthHeaders()
+        });
         setSummaryData(summaryResponse.data);
       } catch (error) {
         console.error('Error fetching reports data:', error);
@@ -43,7 +57,7 @@ export const Reports: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [clerkUser?.id]);
 
   // Always format as USD since all amounts are in USD from backend
   const formatCurrency = (amount: number) => 
@@ -61,7 +75,9 @@ export const Reports: React.FC = () => {
       
       // Fetch specific data based on report type
       if (endpoint) {
-        const response = await axios.get(`http://localhost:8080/api/dashboard/${endpoint}`);
+        const response = await axios.get(`/api/dashboard/${endpoint}`, {
+          headers: getAuthHeaders()
+        });
         data = response.data;
       } else {
         // Use summary data for general reports
@@ -74,7 +90,9 @@ export const Reports: React.FC = () => {
 
       switch (reportTitle) {
         case 'Monthly Revenue Report':
-          const revenueResponse = await axios.get('http://localhost:8080/api/dashboard/revenue-chart');
+          const revenueResponse = await axios.get('/api/dashboard/revenue-chart', {
+            headers: getAuthHeaders()
+          });
           const revenueData = revenueResponse.data || [];
           
           csvContent = [
@@ -85,7 +103,9 @@ export const Reports: React.FC = () => {
           break;
 
         case 'Client Performance Report':
-          const clientsResponse = await axios.get('http://localhost:8080/api/dashboard/top-clients');
+          const clientsResponse = await axios.get('/api/dashboard/top-clients', {
+            headers: getAuthHeaders()
+          });
           const clientsData = clientsResponse.data || [];
           
           csvContent = [
@@ -96,7 +116,9 @@ export const Reports: React.FC = () => {
           break;
 
         case 'Outstanding Invoices Report':
-          const invoicesResponse = await axios.get('http://localhost:8080/api/invoices');
+          const invoicesResponse = await axios.get('/api/invoices', {
+            headers: getAuthHeaders()
+          });
           const invoicesData = invoicesResponse.data || [];
           const outstandingInvoices = invoicesData.filter((invoice: any) => 
             invoice.status === 'unpaid' || invoice.status === 'overdue'

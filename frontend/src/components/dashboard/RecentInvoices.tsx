@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Download } from 'lucide-react';
@@ -7,15 +8,28 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 export const RecentInvoices: React.FC = () => {
+  const { user: clerkUser } = useUser();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  // Configure axios to use Clerk ID
+  const getAuthHeaders = () => {
+    return {
+      'X-Clerk-ID': clerkUser?.id || '',
+      'Content-Type': 'application/json'
+    };
+  };
+
   useEffect(() => {
+    if (!clerkUser?.id) return;
+
     const fetchRecentInvoices = async () => {
       try {
-        const response = await axios.get('http://localhost:8080/api/dashboard/recent-invoices');
+        const response = await axios.get('/api/dashboard/recent-invoices', {
+          headers: getAuthHeaders()
+        });
         setInvoices(response.data || []);
       } catch (error) {
         console.error('Error fetching recent invoices:', error);
@@ -26,7 +40,7 @@ export const RecentInvoices: React.FC = () => {
     };
 
     fetchRecentInvoices();
-  }, []);
+  }, [clerkUser?.id]);
 
   // Format currency - show original currency but also show USD equivalent
   const formatCurrency = (amount: number, currency_type?: string) => {

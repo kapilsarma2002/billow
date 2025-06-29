@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { Card } from '../ui/Card';
 import axios from 'axios';
 
@@ -8,14 +9,27 @@ interface RevenueData {
 }
 
 export const RevenueChart: React.FC = () => {
+  const { user: clerkUser } = useUser();
   const [revenueData, setRevenueData] = useState<RevenueData[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Configure axios to use Clerk ID
+  const getAuthHeaders = () => {
+    return {
+      'X-Clerk-ID': clerkUser?.id || '',
+      'Content-Type': 'application/json'
+    };
+  };
+
   useEffect(() => {
+    if (!clerkUser?.id) return;
+
     const fetchRevenueData = async () => {
       try {
         // Fetch revenue data (already converted to USD on backend)
-        const response = await axios.get('http://localhost:8080/api/dashboard/revenue-chart');
+        const response = await axios.get('/api/dashboard/revenue-chart', {
+          headers: getAuthHeaders()
+        });
         setRevenueData(response.data || []);
       } catch (error) {
         console.error('Error fetching revenue data:', error);
@@ -27,7 +41,7 @@ export const RevenueChart: React.FC = () => {
     };
 
     fetchRevenueData();
-  }, []);
+  }, [clerkUser?.id]);
 
   if (loading) {
     return (

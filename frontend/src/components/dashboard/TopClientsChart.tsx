@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { Card } from '../ui/Card';
 import axios from 'axios';
 
@@ -8,14 +9,27 @@ interface TopClientData {
 }
 
 export const TopClientsChart: React.FC = () => {
+  const { user: clerkUser } = useUser();
   const [topClientsData, setTopClientsData] = useState<TopClientData[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Configure axios to use Clerk ID
+  const getAuthHeaders = () => {
+    return {
+      'X-Clerk-ID': clerkUser?.id || '',
+      'Content-Type': 'application/json'
+    };
+  };
+
   useEffect(() => {
+    if (!clerkUser?.id) return;
+
     const fetchData = async () => {
       try {
         // Fetch top clients data (already converted to USD on backend)
-        const clientsResponse = await axios.get('http://localhost:8080/api/dashboard/top-clients');
+        const clientsResponse = await axios.get('/api/dashboard/top-clients', {
+          headers: getAuthHeaders()
+        });
         setTopClientsData(clientsResponse.data || []);
       } catch (error) {
         console.error('Error fetching top clients:', error);
@@ -26,7 +40,7 @@ export const TopClientsChart: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [clerkUser?.id]);
 
   // Always format as USD since all amounts are in USD from backend
   const formatCurrency = (amount: number) => 

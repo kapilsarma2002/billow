@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { Card } from '../ui/Card';
 import { TrendingUp, TrendingDown, DollarSign, Users, Clock, CheckCircle } from 'lucide-react';
 import axios from 'axios';
@@ -51,15 +52,28 @@ const KPICard: React.FC<KPICardProps> = ({ title, value, change, changeType, ico
 };
 
 export const KPICards: React.FC = () => {
+  const { user: clerkUser } = useUser();
   const [kpiData, setKpiData] = useState<KPIData | null>(null);
   const [previousKpiData, setPreviousKpiData] = useState<KPIData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Configure axios to use Clerk ID
+  const getAuthHeaders = () => {
+    return {
+      'X-Clerk-ID': clerkUser?.id || '',
+      'Content-Type': 'application/json'
+    };
+  };
+
   useEffect(() => {
+    if (!clerkUser?.id) return;
+
     const fetchData = async () => {
       try {
         // Fetch KPI data (all amounts already in USD from backend)
-        const kpiResponse = await axios.get('http://localhost:8080/api/dashboard/kpi');
+        const kpiResponse = await axios.get('/api/dashboard/kpi', {
+          headers: getAuthHeaders()
+        });
         setKpiData(kpiResponse.data);
 
         // Mock previous month data for comparison (in production, you'd fetch actual historical data)
@@ -78,7 +92,7 @@ export const KPICards: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [clerkUser?.id]);
 
   // Always format as USD since all amounts are converted to USD on backend
   const formatCurrency = (amount: number) => 
