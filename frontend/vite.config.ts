@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'],
@@ -17,4 +17,21 @@ export default defineConfig({
       },
     },
   },
-});
+  // Build configuration for production
+  build: {
+    outDir: 'dist',
+    sourcemap: mode === 'development',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          clerk: ['@clerk/clerk-react'],
+        },
+      },
+    },
+  },
+  // Environment variables
+  define: {
+    __DEV__: mode === 'development',
+  },
+}));

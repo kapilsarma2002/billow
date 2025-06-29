@@ -7,6 +7,7 @@ import (
 
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -31,15 +32,27 @@ func main() {
 	// Seed default plans if they don't exist
 	seedDefaultPlans()
 
+	// Get port from environment variable (Heroku sets this)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	// Get allowed origins from environment variable
+	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
+	if allowedOrigins == "" {
+		allowedOrigins = "http://localhost:5173,https://billow-three.vercel.app"
+	}
+
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
 			}
-			
+
 			fmt.Printf("Error: %v\n", err)
-			
+
 			return c.Status(code).JSON(fiber.Map{
 				"error": err.Error(),
 			})
@@ -48,7 +61,7 @@ func main() {
 
 	// Add CORS middleware with proper configuration
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173",
+		AllowOrigins:     allowedOrigins,
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-User-ID, X-Clerk-ID",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
 		AllowCredentials: true,
@@ -62,8 +75,8 @@ func main() {
 	routes.SetupDashboardRoutes(app)
 	routes.SetupSettingsRoutes(app)
 
-	fmt.Println("Starting server on :8080...")
-	if err := app.Listen(":8080"); err != nil {
+	fmt.Printf("Starting server on :%s...\n", port)
+	if err := app.Listen(":" + port); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
 }
