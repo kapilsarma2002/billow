@@ -5,15 +5,19 @@ import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Invoice, Client } from '../../types/index'
 import axios from 'axios';
-import { Search, Filter, Upload, Download, Plus, Calendar, DollarSign, User, FileText, X, SlidersHorizontal, ChevronDown, AlertCircle } from 'lucide-react';
+import { Search, Filter, Upload, Download, Plus, Calendar, DollarSign, User, FileText, X, SlidersHorizontal, ChevronDown, AlertCircle, Edit3, Trash2 } from 'lucide-react';
 
 interface NewInvoice {
-  client_id: string; // Changed to use client ID instead of name
+  client_id: string;
   invoice_date: string;
   amount: number;
   currency_type: string;
   status: 'paid' | 'unpaid' | 'overdue' | 'processing';
   due_date: string;
+}
+
+interface EditInvoice extends NewInvoice {
+  id: string;
 }
 
 interface SearchFilters {
@@ -31,11 +35,13 @@ export const Invoices: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<EditInvoice | null>(null);
   const [newInvoice, setNewInvoice] = useState<NewInvoice>({
     client_id: '',
     invoice_date: '',
@@ -182,6 +188,13 @@ export const Invoices: React.FC = () => {
     }));
   };
 
+  const handleEditInputChange = (field: keyof EditInvoice, value: string | number) => {
+    setEditingInvoice(prev => prev ? ({
+      ...prev,
+      [field]: value
+    }) : null);
+  };
+
   const handleFilterChange = (field: keyof SearchFilters, value: string) => {
     setFilters(prev => ({
       ...prev,
@@ -266,6 +279,89 @@ export const Invoices: React.FC = () => {
     }
   };
 
+  const handleEditSubmit = async () => {
+    if (!editingInvoice) return;
+
+    if (!editingInvoice.client_id) {
+      showError('Please select a client');
+      return;
+    }
+
+    if (!editingInvoice.invoice_date) {
+      showError('Please select an invoice date');
+      return;
+    }
+
+    if (!editingInvoice.due_date) {
+      showError('Please select a due date');
+      return;
+    }
+
+    if (editingInvoice.amount <= 0) {
+      showError('Please enter a valid amount');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await axios.put(`/api/invoices/${editingInvoice.id}`, {
+        client_id: editingInvoice.client_id,
+        invoice_date: editingInvoice.invoice_date,
+        amount: editingInvoice.amount,
+        currency_type: editingInvoice.currency_type,
+        status: editingInvoice.status,
+        due_date: editingInvoice.due_date
+      }, {
+        headers: getAuthHeaders()
+      });
+      
+      // Refresh the invoices list
+      await fetchInvoices();
+      
+      // Close modal and reset
+      setIsEditModalOpen(false);
+      setEditingInvoice(null);
+    } catch (error) {
+      console.error('Error updating invoice:', error);
+      showError('Failed to update invoice. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditInvoice = (invoice: Invoice) => {
+    setEditingInvoice({
+      id: invoice.id,
+      client_id: invoice.client_id || '',
+      invoice_date: invoice.invoice_date,
+      amount: invoice.amount,
+      currency_type: invoice.currency_type || 'USD',
+      status: invoice.status,
+      due_date: invoice.due_date
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await axios.delete(`/api/invoices/${invoiceId}`, {
+        headers: getAuthHeaders()
+      });
+      
+      // Refresh the invoices list
+      await fetchInvoices();
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+      showError('Failed to delete invoice. Please try again.');
+    }
+  };
+
   const resetForm = () => {
     setNewInvoice({
       client_id: '',
@@ -280,6 +376,12 @@ export const Invoices: React.FC = () => {
   const handleModalClose = () => {
     setIsAddModalOpen(false);
     resetForm();
+    setError(null);
+  };
+
+  const handleEditModalClose = () => {
+    setIsEditModalOpen(false);
+    setEditingInvoice(null);
     setError(null);
   };
 
@@ -389,9 +491,9 @@ export const Invoices: React.FC = () => {
   };
 
   // Get selected client name for display
-  const getSelectedClientName = () => {
-    if (!newInvoice.client_id) return 'Select a client';
-    const client = clients.find(c => c.id === newInvoice.client_id);
+  const getSelectedClientName = (clientId: string) => {
+    if (!clientId) return 'Select a client';
+    const client = clients.find(c => c.id === clientId);
     return client ? client.name : 'Select a client';
   };
 
@@ -651,19 +753,40 @@ export const Invoices: React.FC = () => {
                         <span className="text-gray-600 dark:text-gray-400">{formatDate(invoice.due_date)}</span>
                       </td>
                       <td className="py-4 px-6">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => downloadSingleInvoice(invoice)}
-                          disabled={downloadingInvoiceId === invoice.id}
-                          className="opacity-0 group-hover:opacity-100 transition-all duration-200"
-                        >
-                          {downloadingInvoiceId === invoice.id ? (
-                            <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <Download className="w-4 h-4" />
-                          )}
-                        </Button>
+                        <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleEditInvoice(invoice)}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                            title="Edit invoice"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => downloadSingleInvoice(invoice)}
+                            disabled={downloadingInvoiceId === invoice.id}
+                            className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                            title={`Download ${invoice.id}`}
+                          >
+                            {downloadingInvoiceId === invoice.id ? (
+                              <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Download className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDeleteInvoice(invoice.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            title="Delete invoice"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -977,6 +1100,170 @@ export const Invoices: React.FC = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Edit Invoice Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={handleEditModalClose}
+        title="Edit Invoice"
+        size="lg"
+      >
+        {editingInvoice && (
+          <form className="space-y-6 dark:text-gray-400">
+            {/* Header with gradient */}
+            <div className="p-6 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl border border-emerald-200/50 dark:border-emerald-500/20">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 shadow-lg">
+                  <Edit3 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Invoice Details</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Update the invoice information below</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Client Dropdown */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <User className="w-4 h-4 inline mr-2" />
+                  Client
+                </label>
+                <div className="relative">
+                  <select
+                    value={editingInvoice.client_id}
+                    onChange={(e) => handleEditInputChange('client_id', e.target.value)}
+                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors appearance-none"
+                    required
+                  >
+                    <option value="">Select a client</option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.name} {client.email && `(${client.email})`}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <DollarSign className="w-4 h-4 inline mr-2" />
+                  Amount
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="0.01"
+                  value={editingInvoice.amount}
+                  onChange={(e) => handleEditInputChange('amount', parseFloat(e.target.value) || 0)}
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="0.00"
+                />
+              </div>
+
+              {/* Currency Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Currency
+                </label>
+                <select
+                  value={editingInvoice.currency_type}
+                  onChange={(e) => handleEditInputChange('currency_type', e.target.value)}
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="USD">USD - US Dollar</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="GBP">GBP - British Pound</option>
+                  <option value="INR">INR - Indian Rupee</option>
+                  <option value="CAD">CAD - Canadian Dollar</option>
+                  <option value="AUD">AUD - Australian Dollar</option>
+                </select>
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Status
+                </label>
+                <select
+                  value={editingInvoice.status}
+                  onChange={(e) => handleEditInputChange('status', e.target.value)}
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                >
+                  <option value="unpaid">Unpaid</option>
+                  <option value="paid">Paid</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="processing">Processing</option>
+                </select>
+              </div>
+
+              {/* Invoice Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <Calendar className="w-4 h-4 inline mr-2" />
+                  Invoice Date
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={editingInvoice.invoice_date}
+                  onChange={(e) => handleEditInputChange('invoice_date', e.target.value)}
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+
+              {/* Due Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <Calendar className="w-4 h-4 inline mr-2" />
+                  Due Date
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={editingInvoice.due_date}
+                  onChange={(e) => handleEditInputChange('due_date', e.target.value)}
+                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <Button
+                variant="secondary"
+                onClick={handleEditModalClose}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="gradient"
+                disabled={isLoading || !editingInvoice.client_id}
+                className="min-w-[120px]"
+                onClick={handleEditSubmit}
+              >
+                {isLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Updating...</span>
+                  </div>
+                ) : (
+                  <>
+                    <Edit3 className="w-4 h-4 mr-2" />
+                    Update Invoice
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );
