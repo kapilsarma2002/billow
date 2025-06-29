@@ -4,6 +4,7 @@ import (
 	"billow-backend/config"
 	"billow-backend/middleware"
 	"billow-backend/models"
+	"fmt"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -64,7 +65,35 @@ func createInvoice(c *fiber.Ctx) error {
 		invoice.ClientID = client.ID
 	}
 
+	// Validate required fields
+	if invoice.ClientID == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Client is required"})
+	}
+
+	if invoice.Amount <= 0 {
+		return c.Status(400).JSON(fiber.Map{"error": "Amount must be greater than 0"})
+	}
+
+	if invoice.InvoiceDate == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Invoice date is required"})
+	}
+
+	if invoice.DueDate == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Due date is required"})
+	}
+
+	// Set default currency if not provided
+	if invoice.CurrencyType == "" {
+		invoice.CurrencyType = "USD"
+	}
+
+	// Set default status if not provided
+	if invoice.Status == "" {
+		invoice.Status = "unpaid"
+	}
+
 	if err := config.DB.Create(&invoice).Error; err != nil {
+		fmt.Printf("Error creating invoice: %v\n", err)
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create invoice"})
 	}
 

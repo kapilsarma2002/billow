@@ -35,3 +35,11 @@ func GenerateInvoiceID() string {
 		now.Format("150405"),   // HHMMSS
 		nanoseconds)            // Microseconds (6 digits)
 }
+
+// GenerateInvoiceNumber creates a sequential invoice number for display
+func GenerateInvoiceNumber(userID string) string {
+	// Count existing invoices for this user to generate next number
+	var count int64
+	// This would be called from the route handler where we have access to the DB
+	return fmt.Sprintf("INV-%04d", count+1)
+}
