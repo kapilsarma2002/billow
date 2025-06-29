@@ -16,12 +16,9 @@ func main() {
 	fmt.Println("Starting Billow backend...")
 	config.ConnectDatabase()
 
-	// Clear existing data to avoid foreign key constraint issues
-	// This ensures a clean slate for auto-migration
-	//clearExistingData()
-
 	// Auto migrate the database with proper relationships
 	// GORM will handle foreign key constraints automatically
+	fmt.Println("Running database migrations...")
 	config.DB.AutoMigrate(&models.User{})
 	config.DB.AutoMigrate(&models.Plan{})
 	config.DB.AutoMigrate(&models.Subscription{})
@@ -34,7 +31,20 @@ func main() {
 	// Seed default plans if they don't exist
 	seedDefaultPlans()
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			code := fiber.StatusInternalServerError
+			if e, ok := err.(*fiber.Error); ok {
+				code = e.Code
+			}
+			
+			fmt.Printf("Error: %v\n", err)
+			
+			return c.Status(code).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		},
+	})
 
 	// Add CORS middleware with proper configuration
 	app.Use(cors.New(cors.Config{
@@ -58,28 +68,13 @@ func main() {
 	}
 }
 
-func clearExistingData() {
-	fmt.Println("Clearing existing data to ensure clean migration...")
-
-	// Delete data in the correct order to respect foreign key constraints
-	config.DB.Exec("DELETE FROM analytics_data")
-	config.DB.Exec("DELETE FROM usage_logs")
-	config.DB.Exec("DELETE FROM user_preferences")
-	config.DB.Exec("DELETE FROM subscriptions")
-	config.DB.Exec("DELETE FROM invoices")
-	config.DB.Exec("DELETE FROM clients")
-	config.DB.Exec("DELETE FROM users")
-
-	// Keep plans as they are seeded data
-	fmt.Println("Existing data cleared successfully")
-}
-
 func seedDefaultPlans() {
 	// Check if plans already exist
 	var count int64
 	config.DB.Model(&models.Plan{}).Count(&count)
 
 	if count == 0 {
+		fmt.Println("Seeding default plans...")
 		plans := []models.Plan{
 			{
 				ID:                "PLN-STARTER",
@@ -132,7 +127,13 @@ func seedDefaultPlans() {
 		}
 
 		for _, plan := range plans {
-			config.DB.Create(&plan)
+			if err := config.DB.Create(&plan).Error; err != nil {
+				fmt.Printf("Error creating plan %s: %v\n", plan.Name, err)
+			} else {
+				fmt.Printf("Created plan: %s\n", plan.Name)
+			}
 		}
+	} else {
+		fmt.Printf("Plans already exist (%d plans found)\n", count)
 	}
 }

@@ -12,13 +12,16 @@ import { Settings } from './components/pages/Settings';
 import { SignInPage } from './components/auth/SignInPage';
 import { SignUpPage } from './components/auth/SignUpPage';
 import { AuthCallback } from './components/auth/AuthCallback';
+import { UserSyncWrapper } from './components/auth/UserSyncWrapper';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <>
       <SignedIn>
-        {children}
+        <UserSyncWrapper>
+          {children}
+        </UserSyncWrapper>
       </SignedIn>
       <SignedOut>
         <Navigate to="/sign-in" replace />

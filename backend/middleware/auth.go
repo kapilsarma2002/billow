@@ -3,6 +3,7 @@ package middleware
 import (
 	"billow-backend/config"
 	"billow-backend/models"
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -28,17 +29,29 @@ func AuthMiddleware() fiber.Handler {
 
 		// Try to find user by Clerk ID first, then by our internal ID
 		if clerkID != "" {
+			fmt.Printf("Looking for user with Clerk ID: %s\n", clerkID)
 			err = config.DB.Where("clerk_id = ?", clerkID).First(&user).Error
+			if err != nil {
+				fmt.Printf("User not found with Clerk ID: %s, error: %v\n", clerkID, err)
+			}
 		} else if userID != "" {
+			fmt.Printf("Looking for user with User ID: %s\n", userID)
 			err = config.DB.Where("id = ?", userID).First(&user).Error
+			if err != nil {
+				fmt.Printf("User not found with User ID: %s, error: %v\n", userID, err)
+			}
 		}
 
 		if err != nil {
 			return c.Status(401).JSON(fiber.Map{
 				"error": "User not found",
-				"message": "Please sign in to continue",
+				"message": "Please sign in to continue. If you just signed up, please try refreshing the page.",
+				"clerk_id": clerkID,
+				"user_id": userID,
 			})
 		}
+
+		fmt.Printf("User found: %s (Clerk ID: %s)\n", user.ID, user.ClerkID)
 
 		// Set user context for use in handlers
 		c.Locals("user", user)
