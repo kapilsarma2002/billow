@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
@@ -37,9 +38,6 @@ import {
   Edit3
 } from 'lucide-react';
 
-// Configuration - In a real app, this would come from authentication context
-const CURRENT_USER_ID = import.meta.env.VITE_USER_ID || 'USR-20241215-143052-123456';
-
 interface UserProfile {
   id: string;
   email: string;
@@ -60,6 +58,10 @@ interface Subscription {
     interval: string;
     invoice_limit: number;
     client_limit: number;
+    messages_per_day: number;
+    image_generation: boolean;
+    custom_voice: boolean;
+    priority_support: boolean;
     advanced_analytics: boolean;
     api_access: boolean;
     white_label: boolean;
@@ -70,10 +72,19 @@ interface UsageMetrics {
   current_usage: {
     invoices_created: number;
     clients_created: number;
+    messages_sent: number;
+    images_generated: number;
   };
   limits: {
     invoice_limit: number;
     client_limit: number;
+    messages_per_day: number;
+    image_generation: boolean;
+    custom_voice: boolean;
+    priority_support: boolean;
+    advanced_analytics: boolean;
+    api_access: boolean;
+    white_label: boolean;
   };
   period: {
     start: string;
@@ -111,6 +122,7 @@ interface AnalyticsData {
 
 export const Settings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
+  const { user: clerkUser } = useUser();
   
   // State management
   const [activeTab, setActiveTab] = useState('profile');
@@ -146,10 +158,18 @@ export const Settings: React.FC = () => {
     timezone: 'UTC'
   });
 
+  // Configure axios to use Clerk ID
+  const getAuthHeaders = () => {
+    return {
+      'X-Clerk-ID': clerkUser?.id || '',
+      'Content-Type': 'application/json'
+    };
+  };
+
   // Fetch data on component mount
   useEffect(() => {
     // Prevent duplicate API calls in React strict mode
-    if (dataFetchedRef.current) return;
+    if (dataFetchedRef.current || !clerkUser?.id) return;
     dataFetchedRef.current = true;
     
     let isMounted = true;
@@ -185,12 +205,12 @@ export const Settings: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [clerkUser?.id]);
 
   const fetchProfile = async () => {
     try {
       const response = await axios.get('/api/settings/profile', {
-        headers: { 'X-User-ID': CURRENT_USER_ID }
+        headers: getAuthHeaders()
       });
       setProfile(response.data);
       setProfileForm({
@@ -207,7 +227,7 @@ export const Settings: React.FC = () => {
   const fetchSubscription = async () => {
     try {
       const response = await axios.get('/api/subscription/status', {
-        headers: { 'X-User-ID': CURRENT_USER_ID }
+        headers: getAuthHeaders()
       });
       setSubscription(response.data.subscription);
     } catch (error) {
@@ -219,7 +239,7 @@ export const Settings: React.FC = () => {
   const fetchUsageMetrics = async () => {
     try {
       const response = await axios.get('/api/subscription/usage', {
-        headers: { 'X-User-ID': CURRENT_USER_ID }
+        headers: getAuthHeaders()
       });
       setUsageMetrics(response.data);
     } catch (error) {
@@ -230,7 +250,9 @@ export const Settings: React.FC = () => {
 
   const fetchAvailablePlans = async () => {
     try {
-      const response = await axios.get('/api/subscription/plans');
+      const response = await axios.get('/api/subscription/plans', {
+        headers: getAuthHeaders()
+      });
       console.log('Plans response:', response.data);
       if (response.data && response.data.plans) {
         setAvailablePlans(response.data.plans);
@@ -247,7 +269,7 @@ export const Settings: React.FC = () => {
   const fetchPreferences = async () => {
     try {
       const response = await axios.get('/api/settings/preferences', {
-        headers: { 'X-User-ID': CURRENT_USER_ID }
+        headers: getAuthHeaders()
       });
       setPreferences(response.data);
       setPreferencesForm(response.data);
@@ -260,7 +282,7 @@ export const Settings: React.FC = () => {
   const fetchAnalytics = async () => {
     try {
       const response = await axios.get('/api/analytics/usage', {
-        headers: { 'X-User-ID': CURRENT_USER_ID }
+        headers: getAuthHeaders()
       });
       if (response.data && response.data.analytics) {
         setAnalytics(response.data.analytics);
@@ -279,7 +301,7 @@ export const Settings: React.FC = () => {
     setLoading(true);
     try {
       const response = await axios.post('/api/settings/profile', profileForm, {
-        headers: { 'X-User-ID': CURRENT_USER_ID }
+        headers: getAuthHeaders()
       });
       setProfile(response.data.user);
       showNotification('success', 'Profile updated successfully');
@@ -295,7 +317,7 @@ export const Settings: React.FC = () => {
     setLoading(true);
     try {
       const response = await axios.post('/api/settings/preferences', preferencesForm, {
-        headers: { 'X-User-ID': CURRENT_USER_ID }
+        headers: getAuthHeaders()
       });
       setPreferences(response.data.preferences);
       showNotification('success', 'Preferences updated successfully');
@@ -311,7 +333,7 @@ export const Settings: React.FC = () => {
     setLoading(true);
     try {
       await axios.post('/api/subscription/change', { plan_id: planId }, {
-        headers: { 'X-User-ID': CURRENT_USER_ID }
+        headers: getAuthHeaders()
       });
       await fetchSubscription();
       await fetchUsageMetrics();
@@ -427,15 +449,15 @@ export const Settings: React.FC = () => {
               <div className="space-y-6">
                 <div className="flex items-center space-x-4">
                   <div className="relative">
-                    {profileForm.profile_image ? (
+                    {profileForm.profile_image || clerkUser?.imageUrl ? (
                       <img
-                        src={profileForm.profile_image}
+                        src={profileForm.profile_image || clerkUser?.imageUrl}
                         alt="Profile"
                         className="w-20 h-20 rounded-full object-cover ring-4 ring-blue-500/20"
                       />
                     ) : (
                       <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                        {profileForm.display_name?.charAt(0) || 'U'}
+                        {profileForm.display_name?.charAt(0) || clerkUser?.firstName?.charAt(0) || 'U'}
                       </div>
                     )}
                     <button className="absolute -bottom-2 -right-2 p-2 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
@@ -468,7 +490,7 @@ export const Settings: React.FC = () => {
                     <input
                       type="email"
                       value={profileForm.email}
-                      onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={(e) => set ProfileForm(prev => ({ ...prev, email: e.target.value }))}
                       className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                       placeholder="Enter your email"
                     />
@@ -562,11 +584,20 @@ export const Settings: React.FC = () => {
                       </div>
                       <div className="text-center">
                         <div className="flex items-center justify-center mb-2">
+                          <MessageSquare className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Messages/Day</p>
+                        <p className="font-bold text-gray-900 dark:text-white">
+                          {subscription.plan.messages_per_day === -1 ? 'Unlimited' : subscription.plan.messages_per_day}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex items-center justify-center mb-2">
                           <Headphones className="w-5 h-5 text-orange-600" />
                         </div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Support</p>
                         <p className="font-bold text-gray-900 dark:text-white">
-                          {subscription.plan.advanced_analytics ? 'Priority' : 'Standard'}
+                          {subscription.plan.priority_support ? 'Priority' : 'Standard'}
                         </p>
                       </div>
                     </div>
@@ -615,13 +646,49 @@ export const Settings: React.FC = () => {
                       </div>
                     </div>
 
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Messages Sent</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {usageMetrics.current_usage?.messages_sent || 0} / {usageMetrics.limits?.messages_per_day === -1 ? '∞' : usageMetrics.limits?.messages_per_day || 0}
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div
+                          className="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full transition-all duration-1000"
+                          style={{ width: `${getUsagePercentage(usageMetrics.current_usage?.messages_sent || 0, usageMetrics.limits?.messages_per_day || 0)}%` }}
+                        />
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                       <div className="text-center">
                         <div className="inline-flex p-2 rounded-lg mb-2 bg-blue-100 text-blue-600">
+                          <Image className="w-4 h-4" />
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Image Gen</p>
+                        <p className="text-sm font-medium">{usageMetrics.limits?.image_generation ? 'Enabled' : 'Disabled'}</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="inline-flex p-2 rounded-lg mb-2 bg-emerald-100 text-emerald-600">
+                          <Mic className="w-4 h-4" />
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Custom Voice</p>
+                        <p className="text-sm font-medium">{usageMetrics.limits?.custom_voice ? 'Enabled' : 'Disabled'}</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="inline-flex p-2 rounded-lg mb-2 bg-purple-100 text-purple-600">
                           <BarChart3 className="w-4 h-4" />
                         </div>
                         <p className="text-xs text-gray-600 dark:text-gray-400">Analytics</p>
-                        <p className="text-sm font-medium">Advanced</p>
+                        <p className="text-sm font-medium">{usageMetrics.limits?.advanced_analytics ? 'Advanced' : 'Basic'}</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="inline-flex p-2 rounded-lg mb-2 bg-orange-100 text-orange-600">
+                          <Headphones className="w-4 h-4" />
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">Support</p>
+                        <p className="text-sm font-medium">{usageMetrics.limits?.priority_support ? 'Priority' : 'Standard'}</p>
                       </div>
                     </div>
                   </div>
@@ -833,12 +900,9 @@ export const Settings: React.FC = () => {
                   <div className="text-center p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl">
                     <MessageSquare className="w-8 h-8 mx-auto mb-2 text-orange-600" />
                     <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {analytics && analytics.length > 0 
-                        ? analytics.reduce((sum, data) => sum + data.revenue_generated, 0)
-                        : '0'
-                      }
+                      {usageMetrics?.current_usage?.messages_sent || '0'}
                     </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Revenue Generated</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Messages Sent</p>
                   </div>
                 </div>
 
@@ -876,39 +940,17 @@ export const Settings: React.FC = () => {
 
               <div className="space-y-6">
                 <div>
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-4">Change Password</h4>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Current Password
-                      </label>
-                      <input
-                        type="password"
-                        className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        placeholder="Enter current password"
-                      />
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-4">Account Security</h4>
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-500/20">
+                    <div className="flex items-center space-x-3">
+                      <Shield className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <p className="font-medium text-blue-900 dark:text-blue-400">Secured by Clerk</p>
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                          Your account is protected by Clerk's enterprise-grade security
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        New Password
-                      </label>
-                      <input
-                        type="password"
-                        className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        placeholder="Enter new password"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Confirm New Password
-                      </label>
-                      <input
-                        type="password"
-                        className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                        placeholder="Confirm new password"
-                      />
-                    </div>
-                    <Button variant="secondary">Update Password</Button>
                   </div>
                 </div>
 
@@ -920,6 +962,26 @@ export const Settings: React.FC = () => {
                       <p className="text-sm text-gray-600 dark:text-gray-400">Use an authenticator app for additional security</p>
                     </div>
                     <Button variant="secondary" size="sm">Enable</Button>
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-4">Account Management</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">Change Password</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Update your account password</p>
+                      </div>
+                      <Button variant="secondary" size="sm">Change</Button>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">Manage Account</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Access your Clerk account settings</p>
+                      </div>
+                      <Button variant="secondary" size="sm">Manage</Button>
+                    </div>
                   </div>
                 </div>
 
@@ -954,7 +1016,9 @@ export const Settings: React.FC = () => {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Member Since</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">Jan 2024</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {clerkUser?.createdAt ? new Date(clerkUser.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Recently'}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Total Invoices</span>

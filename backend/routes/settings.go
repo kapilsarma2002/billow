@@ -2,6 +2,7 @@ package routes
 
 import (
 	"billow-backend/config"
+	"billow-backend/middleware"
 	"billow-backend/models"
 	"time"
 
@@ -9,31 +10,35 @@ import (
 )
 
 func SetupSettingsRoutes(app *fiber.App) {
+	// Apply auth middleware to all settings routes
+	settings := app.Group("/api/settings", middleware.AuthMiddleware())
+	subscription := app.Group("/api/subscription", middleware.AuthMiddleware())
+	analytics := app.Group("/api/analytics", middleware.AuthMiddleware())
+
 	// Profile settings
-	app.Post("/api/settings/profile", updateProfile)
-	app.Get("/api/settings/profile", getProfile)
+	settings.Post("/profile", updateProfile)
+	settings.Get("/profile", getProfile)
 
 	// Subscription management
-	app.Get("/api/subscription/status", getSubscriptionStatus)
-	app.Post("/api/subscription/change", changeSubscription)
-	app.Get("/api/subscription/usage", getUsageMetrics)
-	app.Get("/api/subscription/plans", getAvailablePlans)
+	subscription.Get("/status", getSubscriptionStatus)
+	subscription.Post("/change", changeSubscription)
+	subscription.Get("/usage", getUsageMetrics)
+	subscription.Get("/plans", getAvailablePlans)
 
 	// Preferences
-	app.Post("/api/settings/preferences", updatePreferences)
-	app.Get("/api/settings/preferences", getPreferences)
+	settings.Post("/preferences", updatePreferences)
+	settings.Get("/preferences", getPreferences)
 
 	// Analytics
-	app.Get("/api/analytics/usage", getUsageAnalytics)
-	app.Get("/api/analytics/dashboard", getAnalyticsDashboard)
+	analytics.Get("/usage", getUsageAnalytics)
+	analytics.Get("/dashboard", getAnalyticsDashboard)
 }
 
 // Profile Management
 func updateProfile(c *fiber.Ctx) error {
-	// In a real app, you'd get user ID from JWT token
-	userID := c.Get("X-User-ID")
-	if userID == "" {
-		return c.Status(401).JSON(fiber.Map{"error": "User ID required"})
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	var updateData struct {
@@ -82,14 +87,9 @@ func updateProfile(c *fiber.Ctx) error {
 }
 
 func getProfile(c *fiber.Ctx) error {
-	userID := c.Get("X-User-ID")
-	if userID == "" {
-		return c.Status(401).JSON(fiber.Map{"error": "User ID required"})
-	}
-
-	var user models.User
-	if err := config.DB.First(&user, "id = ?", userID).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+	user, err := middleware.GetUserFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	return c.JSON(user)
@@ -97,9 +97,9 @@ func getProfile(c *fiber.Ctx) error {
 
 // Subscription Management
 func getSubscriptionStatus(c *fiber.Ctx) error {
-	userID := c.Get("X-User-ID")
-	if userID == "" {
-		return c.Status(401).JSON(fiber.Map{"error": "User ID required"})
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	var subscription models.Subscription
@@ -111,9 +111,9 @@ func getSubscriptionStatus(c *fiber.Ctx) error {
 }
 
 func getUsageMetrics(c *fiber.Ctx) error {
-	userID := c.Get("X-User-ID")
-	if userID == "" {
-		return c.Status(401).JSON(fiber.Map{"error": "User ID required"})
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	// Get current month usage
@@ -121,11 +121,11 @@ func getUsageMetrics(c *fiber.Ctx) error {
 
 	// Count invoices created this month
 	var invoiceCount int64
-	config.DB.Model(&models.Invoice{}).Where("created_at >= ?", startOfMonth).Count(&invoiceCount)
+	config.DB.Model(&models.Invoice{}).Where("user_id = ? AND created_at >= ?", userID, startOfMonth).Count(&invoiceCount)
 
 	// Count clients created this month
 	var clientCount int64
-	config.DB.Model(&models.Client{}).Where("created_at >= ?", startOfMonth).Count(&clientCount)
+	config.DB.Model(&models.Client{}).Where("user_id = ? AND created_at >= ?", userID, startOfMonth).Count(&clientCount)
 
 	// Get usage logs for other features
 	var usageLogs []models.UsageLog
@@ -153,10 +153,19 @@ func getUsageMetrics(c *fiber.Ctx) error {
 		"current_usage": map[string]interface{}{
 			"invoices_created": invoiceCount,
 			"clients_created":  clientCount,
+			"messages_sent":    messagesCount,
+			"images_generated": imagesGenerated,
 		},
 		"limits": map[string]interface{}{
-			"invoice_limit": subscription.Plan.InvoiceLimit,
-			"client_limit":  subscription.Plan.ClientLimit,
+			"invoice_limit":      subscription.Plan.InvoiceLimit,
+			"client_limit":       subscription.Plan.ClientLimit,
+			"messages_per_day":   subscription.Plan.MessagesPerDay,
+			"image_generation":   subscription.Plan.ImageGeneration,
+			"custom_voice":       subscription.Plan.CustomVoice,
+			"priority_support":   subscription.Plan.PrioritySupport,
+			"advanced_analytics": subscription.Plan.AdvancedAnalytics,
+			"api_access":         subscription.Plan.APIAccess,
+			"white_label":        subscription.Plan.WhiteLabel,
 		},
 		"period": map[string]interface{}{
 			"start": startOfMonth,
@@ -175,13 +184,71 @@ func getAvailablePlans(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "No plans available"})
 	}
 
-	return c.JSON(fiber.Map{"plans": plans})
+	// Add features list for each plan
+	plansWithFeatures := make([]map[string]interface{}, len(plans))
+	for i, plan := range plans {
+		features := []string{}
+		
+		if plan.InvoiceLimit == -1 {
+			features = append(features, "Unlimited invoices")
+		} else {
+			features = append(features, fmt.Sprintf("Up to %d invoices/month", plan.InvoiceLimit))
+		}
+		
+		if plan.ClientLimit == -1 {
+			features = append(features, "Unlimited clients")
+		} else {
+			features = append(features, fmt.Sprintf("Up to %d clients", plan.ClientLimit))
+		}
+		
+		if plan.MessagesPerDay == -1 {
+			features = append(features, "Unlimited messages")
+		} else {
+			features = append(features, fmt.Sprintf("%d messages/day", plan.MessagesPerDay))
+		}
+		
+		if plan.ImageGeneration {
+			features = append(features, "AI image generation")
+		}
+		
+		if plan.CustomVoice {
+			features = append(features, "Custom voice cloning")
+		}
+		
+		if plan.PrioritySupport {
+			features = append(features, "Priority support")
+		}
+		
+		if plan.AdvancedAnalytics {
+			features = append(features, "Advanced analytics")
+		}
+		
+		if plan.APIAccess {
+			features = append(features, "API access")
+		}
+		
+		if plan.WhiteLabel {
+			features = append(features, "White-label branding")
+		}
+
+		plansWithFeatures[i] = map[string]interface{}{
+			"id":       plan.ID,
+			"name":     plan.Name,
+			"price":    plan.Price,
+			"currency": plan.Currency,
+			"interval": plan.Interval,
+			"features": features,
+			"popular":  plan.Name == "Pro", // Mark Pro as popular
+		}
+	}
+
+	return c.JSON(fiber.Map{"plans": plansWithFeatures})
 }
 
 func changeSubscription(c *fiber.Ctx) error {
-	userID := c.Get("X-User-ID")
-	if userID == "" {
-		return c.Status(401).JSON(fiber.Map{"error": "User ID required"})
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	var changeData struct {
@@ -239,9 +306,9 @@ func changeSubscription(c *fiber.Ctx) error {
 
 // Preferences Management
 func updatePreferences(c *fiber.Ctx) error {
-	userID := c.Get("X-User-ID")
-	if userID == "" {
-		return c.Status(401).JSON(fiber.Map{"error": "User ID required"})
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	var updateData models.UserPreferences
@@ -299,9 +366,9 @@ func updatePreferences(c *fiber.Ctx) error {
 }
 
 func getPreferences(c *fiber.Ctx) error {
-	userID := c.Get("X-User-ID")
-	if userID == "" {
-		return c.Status(401).JSON(fiber.Map{"error": "User ID required"})
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	var preferences models.UserPreferences
@@ -314,9 +381,9 @@ func getPreferences(c *fiber.Ctx) error {
 
 // Analytics
 func getUsageAnalytics(c *fiber.Ctx) error {
-	userID := c.Get("X-User-ID")
-	if userID == "" {
-		return c.Status(401).JSON(fiber.Map{"error": "User ID required"})
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	// Get last 30 days of analytics data
@@ -337,19 +404,19 @@ func getUsageAnalytics(c *fiber.Ctx) error {
 }
 
 func getAnalyticsDashboard(c *fiber.Ctx) error {
-	userID := c.Get("X-User-ID")
-	if userID == "" {
-		return c.Status(401).JSON(fiber.Map{"error": "User ID required"})
+	userID, err := middleware.GetUserIDFromContext(c)
+	if err != nil {
+		return err
 	}
 
 	// Get current month stats
 	startOfMonth := time.Now().AddDate(0, 0, -time.Now().Day()+1)
 
 	var invoiceCount int64
-	config.DB.Model(&models.Invoice{}).Where("created_at >= ?", startOfMonth).Count(&invoiceCount)
+	config.DB.Model(&models.Invoice{}).Where("user_id = ? AND created_at >= ?", userID, startOfMonth).Count(&invoiceCount)
 
 	var clientCount int64
-	config.DB.Model(&models.Client{}).Where("created_at >= ?", startOfMonth).Count(&clientCount)
+	config.DB.Model(&models.Client{}).Where("user_id = ? AND created_at >= ?", userID, startOfMonth).Count(&clientCount)
 
 	// Get usage logs
 	var usageLogs []models.UsageLog
@@ -365,8 +432,8 @@ func getAnalyticsDashboard(c *fiber.Ctx) error {
 	// Calculate revenue from actual invoices
 	var totalRevenue float64
 	config.DB.Model(&models.Invoice{}).
-		Where("created_at >= ?", startOfMonth).
-		Select("COALESCE(SUM(total_amount), 0)").
+		Where("user_id = ? AND created_at >= ?", userID, startOfMonth).
+		Select("COALESCE(SUM(amount), 0)").
 		Scan(&totalRevenue)
 
 	return c.JSON(fiber.Map{
@@ -383,7 +450,7 @@ func getAnalyticsDashboard(c *fiber.Ctx) error {
 
 // Helper functions
 func contains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
+	for i := 0; i <= len(s)-substr; i++ {
 		if s[i:i+len(substr)] == substr {
 			return true
 		}

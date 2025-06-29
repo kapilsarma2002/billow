@@ -18,16 +18,14 @@ func main() {
 
 	// Auto migrate the database with proper relationships
 	// GORM will handle foreign key constraints automatically
-	config.DB.AutoMigrate(&models.Client{})
-	config.DB.AutoMigrate(&models.Invoice{})
-
-	// Migrate new models for settings and subscription management
 	config.DB.AutoMigrate(&models.User{})
 	config.DB.AutoMigrate(&models.Plan{})
 	config.DB.AutoMigrate(&models.Subscription{})
 	config.DB.AutoMigrate(&models.UserPreferences{})
 	config.DB.AutoMigrate(&models.UsageLog{})
 	config.DB.AutoMigrate(&models.AnalyticsData{})
+	config.DB.AutoMigrate(&models.Client{})
+	config.DB.AutoMigrate(&models.Invoice{})
 
 	// Seed default plans if they don't exist
 	seedDefaultPlans()
@@ -37,13 +35,14 @@ func main() {
 	// Add CORS middleware with proper configuration
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     "http://localhost:5173",
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-User-ID",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-User-ID, X-Clerk-ID",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
 		AllowCredentials: true,
 	}))
 
 	// Setup all routes
 	fmt.Println("Setting up routes...")
+	routes.SetupAuthRoutes(app)
 	routes.Setup(app)
 	routes.SetupClientRoutes(app)
 	routes.SetupDashboardRoutes(app)
@@ -70,6 +69,10 @@ func seedDefaultPlans() {
 				Interval:          "month",
 				InvoiceLimit:      50,
 				ClientLimit:       10,
+				MessagesPerDay:    100,
+				ImageGeneration:   false,
+				CustomVoice:       false,
+				PrioritySupport:   false,
 				AdvancedAnalytics: false,
 				APIAccess:         false,
 				WhiteLabel:        false,
@@ -82,6 +85,10 @@ func seedDefaultPlans() {
 				Interval:          "month",
 				InvoiceLimit:      -1, // Unlimited
 				ClientLimit:       -1, // Unlimited
+				MessagesPerDay:    1000,
+				ImageGeneration:   true,
+				CustomVoice:       true,
+				PrioritySupport:   true,
 				AdvancedAnalytics: true,
 				APIAccess:         true,
 				WhiteLabel:        false,
@@ -94,6 +101,10 @@ func seedDefaultPlans() {
 				Interval:          "month",
 				InvoiceLimit:      -1, // Unlimited
 				ClientLimit:       -1, // Unlimited
+				MessagesPerDay:    -1, // Unlimited
+				ImageGeneration:   true,
+				CustomVoice:       true,
+				PrioritySupport:   true,
 				AdvancedAnalytics: true,
 				APIAccess:         true,
 				WhiteLabel:        true,

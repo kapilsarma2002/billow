@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { SignedIn, SignedOut, useUser } from '@clerk/clerk-react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { Layout } from './components/Layout';
 import { Landing } from './components/pages/Landing';
@@ -8,6 +9,9 @@ import { Invoices } from './components/pages/Invoices';
 import { Clients } from './components/pages/Clients';
 import { Reports } from './components/pages/Reports';
 import { Settings } from './components/pages/Settings';
+import { SignInPage } from './components/auth/SignInPage';
+import { SignUpPage } from './components/auth/SignUpPage';
+import { AuthCallback } from './components/auth/AuthCallback';
 
 function App() {
   return (
@@ -15,38 +19,55 @@ function App() {
       <Router>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 transition-all duration-500">
           <Routes>
-            {/* Landing page - no authentication required */}
+            {/* Public routes */}
             <Route path="/" element={<Landing />} />
+            <Route path="/sign-in/*" element={<SignInPage />} />
+            <Route path="/sign-up/*" element={<SignUpPage />} />
+            <Route path="/auth-callback" element={<AuthCallback />} />
             
-            {/* Dashboard routes - wrapped in Layout */}
+            {/* Protected routes */}
             <Route path="/dashboard" element={
-              <Layout>
-                <Dashboard />
-              </Layout>
+              <SignedIn>
+                <Layout>
+                  <Dashboard />
+                </Layout>
+              </SignedIn>
             } />
             <Route path="/invoices" element={
-              <Layout>
-                <Invoices />
-              </Layout>
+              <SignedIn>
+                <Layout>
+                  <Invoices />
+                </Layout>
+              </SignedIn>
             } />
             <Route path="/clients" element={
-              <Layout>
-                <Clients />
-              </Layout>
+              <SignedIn>
+                <Layout>
+                  <Clients />
+                </Layout>
+              </SignedIn>
             } />
             <Route path="/reports" element={
-              <Layout>
-                <Reports />
-              </Layout>
+              <SignedIn>
+                <Layout>
+                  <Reports />
+                </Layout>
+              </SignedIn>
             } />
             <Route path="/settings" element={
-              <Layout>
-                <Settings />
-              </Layout>
+              <SignedIn>
+                <Layout>
+                  <Settings />
+                </Layout>
+              </SignedIn>
             } />
             
-            {/* Catch all route */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* Redirect unauthenticated users */}
+            <Route path="*" element={
+              <SignedOut>
+                <Navigate to="/sign-in" replace />
+              </SignedOut>
+            } />
           </Routes>
         </div>
       </Router>

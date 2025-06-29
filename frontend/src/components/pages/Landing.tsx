@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '@clerk/clerk-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { 
@@ -28,6 +30,16 @@ export const Landing: React.FC = () => {
   const [isAnnual, setIsAnnual] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const { isSignedIn } = useUser();
+  const navigate = useNavigate();
+
+  const handleGetStarted = () => {
+    if (isSignedIn) {
+      navigate('/dashboard');
+    } else {
+      navigate('/sign-up');
+    }
+  };
 
   const features = [
     {
@@ -244,9 +256,20 @@ export const Landing: React.FC = () => {
               >
                 Contact
               </button>
-              <Button variant="gradient" onClick={() => window.location.href = '/dashboard'}>
-                Get Started
-              </Button>
+              {isSignedIn ? (
+                <Button variant="gradient" onClick={() => navigate('/dashboard')}>
+                  Go to Dashboard
+                </Button>
+              ) : (
+                <div className="flex items-center space-x-3">
+                  <Button variant="ghost" onClick={() => navigate('/sign-in')}>
+                    Sign In
+                  </Button>
+                  <Button variant="gradient" onClick={handleGetStarted}>
+                    Get Started
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Mobile menu button */}
@@ -288,9 +311,20 @@ export const Landing: React.FC = () => {
                 >
                   Contact
                 </button>
-                <Button variant="gradient" onClick={() => window.location.href = '/dashboard'} className="w-full">
-                  Get Started
-                </Button>
+                {isSignedIn ? (
+                  <Button variant="gradient" onClick={() => navigate('/dashboard')} className="w-full">
+                    Go to Dashboard
+                  </Button>
+                ) : (
+                  <div className="flex flex-col space-y-2">
+                    <Button variant="ghost" onClick={() => navigate('/sign-in')} className="w-full">
+                      Sign In
+                    </Button>
+                    <Button variant="gradient" onClick={handleGetStarted} className="w-full">
+                      Get Started
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -324,10 +358,10 @@ export const Landing: React.FC = () => {
               <Button 
                 variant="gradient" 
                 size="lg"
-                onClick={() => window.location.href = '/dashboard'}
+                onClick={handleGetStarted}
                 className="w-full sm:w-auto flex"
               >
-                Start Free Trial
+                {isSignedIn ? 'Go to Dashboard' : 'Start Free Trial'}
                 <ArrowRight className="w-5 h-5 mt-0.5 ml-2" />
               </Button>
               <Button 
@@ -539,7 +573,7 @@ export const Landing: React.FC = () => {
                 <Button 
                   variant={plan.popular ? "gradient" : "secondary"} 
                   className="w-full"
-                  onClick={() => window.location.href = '/dashboard'}
+                  onClick={handleGetStarted}
                 >
                   {plan.cta}
                 </Button>
@@ -610,10 +644,10 @@ export const Landing: React.FC = () => {
             <Button 
               variant="secondary" 
               size="lg"
-              onClick={() => window.location.href = '/dashboard'}
+              onClick={handleGetStarted}
               className="w-full flex sm:w-auto bg-white text-blue-600 hover:bg-gray-100"
             >
-              Start Free Trial
+              {isSignedIn ? 'Go to Dashboard' : 'Start Free Trial'}
               <ArrowRight className="w-5 h-5 mt-0.5 ml-2" />
             </Button>
             <Button 

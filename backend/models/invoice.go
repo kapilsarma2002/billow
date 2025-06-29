@@ -7,6 +7,7 @@ import (
 
 type Invoice struct {
 	ID           string    `json:"id" gorm:"primaryKey;type:varchar(30)"`
+	UserID       string    `json:"user_id" gorm:"type:varchar(30);not null;index"`
 	ClientID     string    `json:"client_id" gorm:"type:varchar(30);not null;index;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	Client       Client    `json:"client" gorm:"foreignKey:ClientID;references:ID"`
 	ClientName   string    `json:"client_name"` // For backward compatibility and display
@@ -17,6 +18,9 @@ type Invoice struct {
 	DueDate      string    `json:"due_date"`
 	CreatedAt    time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt    time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+	// Relationships
+	User User `json:"user,omitempty" gorm:"foreignKey:UserID;references:ID"`
 }
 
 // GenerateInvoiceID creates a unique invoice ID using current date, time, and nanoseconds

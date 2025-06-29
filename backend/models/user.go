@@ -14,6 +14,7 @@ var (
 
 type User struct {
 	ID           string    `json:"id" gorm:"primaryKey;type:varchar(30)"`
+	ClerkID      string    `json:"clerk_id" gorm:"unique;not null;type:varchar(50)"`
 	Email        string    `json:"email" gorm:"unique;not null"`
 	DisplayName  string    `json:"display_name"`
 	ProfileImage string    `json:"profile_image"`
@@ -24,6 +25,8 @@ type User struct {
 	Subscription *Subscription    `json:"subscription,omitempty" gorm:"foreignKey:UserID"`
 	Preferences  *UserPreferences `json:"preferences,omitempty" gorm:"foreignKey:UserID"`
 	UsageLogs    []UsageLog       `json:"usage_logs,omitempty" gorm:"foreignKey:UserID"`
+	Clients      []Client         `json:"clients,omitempty" gorm:"foreignKey:UserID"`
+	Invoices     []Invoice        `json:"invoices,omitempty" gorm:"foreignKey:UserID"`
 }
 
 type Subscription struct {
@@ -50,6 +53,10 @@ type Plan struct {
 	Interval          string    `json:"interval"`         // month, year
 	InvoiceLimit      int       `json:"invoice_limit"`    // -1 for unlimited
 	ClientLimit       int       `json:"client_limit"`     // -1 for unlimited
+	MessagesPerDay    int       `json:"messages_per_day"` // -1 for unlimited
+	ImageGeneration   bool      `json:"image_generation"`
+	CustomVoice       bool      `json:"custom_voice"`
+	PrioritySupport   bool      `json:"priority_support"`
 	AdvancedAnalytics bool      `json:"advanced_analytics"`
 	APIAccess         bool      `json:"api_access"`
 	WhiteLabel        bool      `json:"white_label"`

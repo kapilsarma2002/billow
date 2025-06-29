@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { UserButton, useUser } from '@clerk/clerk-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { 
   BarChart3, 
@@ -36,6 +37,7 @@ const navItems: NavItem[] = [
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { user } = useUser();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -78,7 +80,28 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <h1 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   Billow
                 </h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Invoice Insights Analytics</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Invoice Analytics</p>
+              </div>
+            </div>
+          </div>
+
+          {/* User Info */}
+          <div className="px-6 py-4 border-b border-gray-200/50 dark:border-gray-700/50">
+            <div className="flex items-center space-x-3">
+              <UserButton 
+                appearance={{
+                  elements: {
+                    avatarBox: "w-10 h-10"
+                  }
+                }}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  {user?.fullName || user?.firstName || 'User'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {user?.primaryEmailAddress?.emailAddress}
+                </p>
               </div>
             </div>
           </div>
@@ -129,7 +152,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <h1 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             Billow
           </h1>
-          <div className="w-10" /> {/* Spacer */}
+          <UserButton />
         </div>
 
         {/* Page content */}
