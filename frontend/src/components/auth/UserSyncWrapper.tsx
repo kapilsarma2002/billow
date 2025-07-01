@@ -32,7 +32,7 @@ export const UserSyncWrapper: React.FC<UserSyncWrapperProps> = ({ children }) =>
           profile_image: user.imageUrl
         });
 
-        console.log('User sync response:', response.data);
+        // console.log('User sync response:', response.data);
         setIsUserSynced(true);
       } catch (error) {
         console.error('Error syncing user:', error);

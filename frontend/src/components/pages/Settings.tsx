@@ -253,7 +253,7 @@ export const Settings: React.FC = () => {
       const response = await api.get('/subscription/plans', {
         headers: getAuthHeaders()
       });
-      console.log('Plans response:', response.data);
+      // console.log('Plans response:', response.data);
       if (response.data && response.data.plans) {
         setAvailablePlans(response.data.plans);
       } else {
