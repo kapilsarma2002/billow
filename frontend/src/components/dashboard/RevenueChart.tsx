@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { Card } from '../ui/Card';
-import axios from 'axios';
+import api from '../../utils/api';
 
 interface RevenueData {
   month: string;
@@ -27,7 +27,7 @@ export const RevenueChart: React.FC = () => {
     const fetchRevenueData = async () => {
       try {
         // Fetch revenue data (already converted to USD on backend)
-        const response = await axios.get('/api/dashboard/revenue-chart', {
+        const response = await api.get('/dashboard/revenue-chart', {
           headers: getAuthHeaders()
         });
         setRevenueData(response.data || []);

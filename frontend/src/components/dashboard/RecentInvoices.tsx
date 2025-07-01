@@ -4,7 +4,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Download } from 'lucide-react';
 import { Invoice } from '../../types';
-import axios from 'axios';
+import api from '../../utils/api';
 import { useNavigate } from 'react-router-dom';
 
 export const RecentInvoices: React.FC = () => {
@@ -27,7 +27,7 @@ export const RecentInvoices: React.FC = () => {
 
     const fetchRecentInvoices = async () => {
       try {
-        const response = await axios.get('/api/dashboard/recent-invoices', {
+        const response = await api.get('/dashboard/recent-invoices', {
           headers: getAuthHeaders()
         });
         setInvoices(response.data || []);
@@ -211,19 +211,15 @@ export const RecentInvoices: React.FC = () => {
                       <span className="text-gray-600 dark:text-gray-400">{formatDate(invoice.due_date)}</span>
                     </td>
                     <td className="py-4 px-4">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => downloadSingleInvoice(invoice)}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => await downloadSingleInvoice(invoice)}
                         disabled={downloadingInvoiceId === invoice.id}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        title={`Download ${invoice.id}`}
+                        className="ml-2"
                       >
-                        {downloadingInvoiceId === invoice.id ? (
-                          <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <Download className="w-4 h-4" />
-                        )}
+                        <Download className="w-4 h-4 mr-1" />
+                        Download
                       </Button>
                     </td>
                   </tr>

@@ -13,7 +13,7 @@ import (
 func SetupDashboardRoutes(app *fiber.App) {
 	// Apply auth middleware to all dashboard routes
 	dashboard := app.Group("/api/dashboard", middleware.AuthMiddleware())
-	
+
 	dashboard.Get("/kpi", getDashboardKPI)
 	dashboard.Get("/revenue-chart", getRevenueChart)
 	dashboard.Get("/top-clients", getTopClients)
@@ -98,7 +98,7 @@ func getDashboardKPI(c *fiber.Ctx) error {
 		// Convert each invoice amount to USD
 		amountUSD := convertToUSD(invoice.Amount, invoice.CurrencyType)
 		totalInvoicedUSD += amountUSD
-		
+
 		if invoice.Status == "paid" {
 			totalPaidUSD += amountUSD
 		}
@@ -133,17 +133,17 @@ func getRevenueChart(c *fiber.Ctx) error {
 
 	// Create a map to aggregate revenue by month in USD
 	monthlyRevenueUSD := make(map[string]float64)
-	
+
 	// Get last 12 months
 	now := time.Now()
 	for i := 11; i >= 0; i-- {
 		month := now.AddDate(0, -i, 0)
 		monthKey := month.Format("2006-01")
 		monthName := month.Format("Jan")
-		
+
 		// Initialize with 0
 		monthlyRevenueUSD[monthKey] = 0
-		
+
 		// Add to result with proper month name
 		revenueData = append(revenueData, RevenueChartData{
 			Month:   monthName,
@@ -167,7 +167,7 @@ func getRevenueChart(c *fiber.Ctx) error {
 	// Update the revenue data with USD amounts
 	now = time.Now()
 	for i := range revenueData {
-		month := now.AddDate(0, -(11-i), 0)
+		month := now.AddDate(0, -(11 - i), 0)
 		monthKey := month.Format("2006-01")
 		revenueData[i].Revenue = monthlyRevenueUSD[monthKey]
 	}
@@ -181,7 +181,7 @@ func getTopClients(c *fiber.Ctx) error {
 		return err
 	}
 
-	var topClients []TopClientData
+	var topClients []TopClientData = []TopClientData{} // Always initialize as empty slice
 
 	// Get all clients for the user
 	var clients []models.Client
@@ -277,7 +277,7 @@ func getReportsSummary(c *fiber.Ctx) error {
 	for _, invoice := range invoices {
 		amountUSD := convertToUSD(invoice.Amount, invoice.CurrencyType)
 		totalRevenueUSD += amountUSD
-		
+
 		if invoice.Status == "paid" {
 			totalPaidUSD += amountUSD
 		}
@@ -329,7 +329,7 @@ func getReportsSummary(c *fiber.Ctx) error {
 	var paidInvoices []models.Invoice
 	if err := config.DB.Where("user_id = ? AND status = ?", userID, "paid").Find(&paidInvoices).Error; err == nil {
 		monthlyRevenueUSD := make(map[string]float64)
-		
+
 		for _, invoice := range paidInvoices {
 			if invoice.InvoiceDate != "" {
 				if invoiceTime, err := time.Parse("2006-01-02", invoice.InvoiceDate); err == nil {
