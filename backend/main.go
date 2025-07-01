@@ -41,7 +41,7 @@ func main() {
 	// Get allowed origins from environment variable
 	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
 	if allowedOrigins == "" {
-		allowedOrigins = "http://localhost:5173,https://billow-three.vercel.app"
+		allowedOrigins = "http://localhost:5173,https://billow-three.vercel.app,https://billow-eecbzjx2n-kapilsarma2002s-projects.vercel.app/"
 	}
 
 	app := fiber.New(fiber.Config{

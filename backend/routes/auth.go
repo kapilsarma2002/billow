@@ -41,7 +41,7 @@ func syncUser(c *fiber.Ctx) error {
 	if err := config.DB.Where("clerk_id = ?", userData.ClerkID).First(&existingUser).Error; err != nil {
 		// User doesn't exist, create new user
 		fmt.Printf("Creating new user with Clerk ID: %s\n", userData.ClerkID)
-		
+
 		user := models.User{
 			ID:           models.GenerateUserID(),
 			ClerkID:      userData.ClerkID,
@@ -97,13 +97,12 @@ func syncUser(c *fiber.Ctx) error {
 
 		return c.JSON(fiber.Map{
 			"message": "User created successfully",
-			"user":    user,
 			"is_new":  true,
 		})
 	} else {
 		// User exists, update their information
 		fmt.Printf("Updating existing user: %s\n", existingUser.ID)
-		
+
 		existingUser.Email = userData.Email
 		existingUser.DisplayName = userData.DisplayName
 		existingUser.ProfileImage = userData.ProfileImage
@@ -117,7 +116,6 @@ func syncUser(c *fiber.Ctx) error {
 
 		return c.JSON(fiber.Map{
 			"message": "User updated successfully",
-			"user":    existingUser,
 			"is_new":  false,
 		})
 	}
@@ -128,13 +126,13 @@ func handleClerkWebhook(c *fiber.Ctx) error {
 	var webhookData struct {
 		Type string `json:"type"`
 		Data struct {
-			ID            string `json:"id"`
-			EmailAddress  string `json:"email_addresses"`
-			FirstName     string `json:"first_name"`
-			LastName      string `json:"last_name"`
-			ImageURL      string `json:"image_url"`
-			PrimaryEmail  string `json:"primary_email_address_id"`
-			EmailObjects  []struct {
+			ID           string `json:"id"`
+			EmailAddress string `json:"email_addresses"`
+			FirstName    string `json:"first_name"`
+			LastName     string `json:"last_name"`
+			ImageURL     string `json:"image_url"`
+			PrimaryEmail string `json:"primary_email_address_id"`
+			EmailObjects []struct {
 				ID           string `json:"id"`
 				EmailAddress string `json:"email_address"`
 			} `json:"email_addresses"`
