@@ -4,7 +4,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { useTheme } from '../../contexts/ThemeContext';
-import axios from 'axios';
+import api from '../../utils/api';
 import { 
   User, 
   CreditCard, 
@@ -209,7 +209,7 @@ export const Settings: React.FC = () => {
 
   const fetchProfile = async () => {
     try {
-      const response = await axios.get('/api/settings/profile', {
+      const response = await api.get('/settings/profile', {
         headers: getAuthHeaders()
       });
       setProfile(response.data);
@@ -226,7 +226,7 @@ export const Settings: React.FC = () => {
 
   const fetchSubscription = async () => {
     try {
-      const response = await axios.get('/api/subscription/status', {
+      const response = await api.get('/subscription/status', {
         headers: getAuthHeaders()
       });
       setSubscription(response.data.subscription);
@@ -238,7 +238,7 @@ export const Settings: React.FC = () => {
 
   const fetchUsageMetrics = async () => {
     try {
-      const response = await axios.get('/api/subscription/usage', {
+      const response = await api.get('/subscription/usage', {
         headers: getAuthHeaders()
       });
       setUsageMetrics(response.data);
@@ -250,7 +250,7 @@ export const Settings: React.FC = () => {
 
   const fetchAvailablePlans = async () => {
     try {
-      const response = await axios.get('/api/subscription/plans', {
+      const response = await api.get('/subscription/plans', {
         headers: getAuthHeaders()
       });
       console.log('Plans response:', response.data);
@@ -268,7 +268,7 @@ export const Settings: React.FC = () => {
 
   const fetchPreferences = async () => {
     try {
-      const response = await axios.get('/api/settings/preferences', {
+      const response = await api.get('/settings/preferences', {
         headers: getAuthHeaders()
       });
       setPreferences(response.data);
@@ -281,7 +281,7 @@ export const Settings: React.FC = () => {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await axios.get('/api/analytics/usage', {
+      const response = await api.get('/analytics/usage', {
         headers: getAuthHeaders()
       });
       if (response.data && response.data.analytics) {
@@ -300,7 +300,7 @@ export const Settings: React.FC = () => {
   const updateProfile = async () => {
     setLoading(true);
     try {
-      const response = await axios.post('/api/settings/profile', profileForm, {
+      const response = await api.post('/settings/profile', profileForm, {
         headers: getAuthHeaders()
       });
       setProfile(response.data.user);
@@ -316,7 +316,7 @@ export const Settings: React.FC = () => {
   const updatePreferences = async () => {
     setLoading(true);
     try {
-      const response = await axios.post('/api/settings/preferences', preferencesForm, {
+      const response = await api.post('/settings/preferences', preferencesForm, {
         headers: getAuthHeaders()
       });
       setPreferences(response.data.preferences);
@@ -332,7 +332,7 @@ export const Settings: React.FC = () => {
   const changePlan = async (planId: string) => {
     setLoading(true);
     try {
-      await axios.post('/api/subscription/change', { plan_id: planId }, {
+      await api.post('/subscription/change', { plan_id: planId }, {
         headers: getAuthHeaders()
       });
       await fetchSubscription();

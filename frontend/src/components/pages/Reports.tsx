@@ -3,7 +3,7 @@ import { useUser } from '@clerk/clerk-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Download, Trophy, Clock, TrendingUp, Calendar } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api';
 
 interface ReportsSummaryData {
   total_revenue: number; // Already in USD from backend
@@ -45,7 +45,7 @@ export const Reports: React.FC = () => {
     const fetchData = async () => {
       try {
         // Fetch reports summary (all amounts already in USD from backend)
-        const summaryResponse = await axios.get('/api/dashboard/reports-summary', {
+        const summaryResponse = await api.get('/dashboard/reports-summary', {
           headers: getAuthHeaders()
         });
         setSummaryData(summaryResponse.data);
@@ -75,7 +75,7 @@ export const Reports: React.FC = () => {
       
       // Fetch specific data based on report type
       if (endpoint) {
-        const response = await axios.get(`/api/dashboard/${endpoint}`, {
+        const response = await api.get(`/dashboard/${endpoint}`, {
           headers: getAuthHeaders()
         });
         data = response.data;
@@ -90,7 +90,7 @@ export const Reports: React.FC = () => {
 
       switch (reportTitle) {
         case 'Monthly Revenue Report':
-          const revenueResponse = await axios.get('/api/dashboard/revenue-chart', {
+          const revenueResponse = await api.get('/dashboard/revenue-chart', {
             headers: getAuthHeaders()
           });
           const revenueData = revenueResponse.data || [];
@@ -103,7 +103,7 @@ export const Reports: React.FC = () => {
           break;
 
         case 'Client Performance Report':
-          const clientsResponse = await axios.get('/api/dashboard/top-clients', {
+          const clientsResponse = await api.get('/dashboard/top-clients', {
             headers: getAuthHeaders()
           });
           const clientsData = clientsResponse.data || [];
@@ -116,7 +116,7 @@ export const Reports: React.FC = () => {
           break;
 
         case 'Outstanding Invoices Report':
-          const invoicesResponse = await axios.get('/api/invoices', {
+          const invoicesResponse = await api.get('/invoices', {
             headers: getAuthHeaders()
           });
           const invoicesData = invoicesResponse.data || [];

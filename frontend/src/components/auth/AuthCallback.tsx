@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader, Zap } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api';
 
 export const AuthCallback: React.FC = () => {
   const { user, isLoaded } = useUser();
@@ -17,7 +17,7 @@ export const AuthCallback: React.FC = () => {
       if (isLoaded && user) {
         try {
           // Create or update user in our database
-          await axios.post('/api/auth/sync-user', {
+          await api.post('/auth/sync-user', {
             clerk_id: user.id,
             email: user.primaryEmailAddress?.emailAddress,
             display_name: user.fullName || user.firstName || 'User',

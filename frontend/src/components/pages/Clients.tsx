@@ -4,7 +4,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Client, ClientRevenueData } from '../../types';
-import axios from 'axios';
+import api from '../../utils/api';
 import { Search, Plus, TrendingUp, Calendar, DollarSign, User, Mail, X, Building, AlertCircle } from 'lucide-react';
 
 interface NewClient {
@@ -45,7 +45,7 @@ export const Clients: React.FC = () => {
   const fetchClients = async (search?: string) => {
     try {
       const params = search ? { search } : {};
-      const response = await axios.get('/api/clients', { 
+      const response = await api.get('/clients', { 
         params,
         headers: getAuthHeaders()
       });
@@ -77,7 +77,7 @@ export const Clients: React.FC = () => {
     
     // Fetch revenue data for the client (already in USD from backend)
     try {
-      const response = await axios.get<ClientRevenueData>(`/api/clients/${client.id}/revenue-data`, {
+      const response = await api.get<ClientRevenueData>(`/clients/${client.id}/revenue-data`, {
         headers: getAuthHeaders()
       });
       setRevenueData(response.data.revenue_data);
@@ -134,7 +134,7 @@ export const Clients: React.FC = () => {
         payment_delay: 0
       };
 
-      await axios.post('/api/clients', clientData, {
+      await api.post('/clients', clientData, {
         headers: getAuthHeaders()
       });
       

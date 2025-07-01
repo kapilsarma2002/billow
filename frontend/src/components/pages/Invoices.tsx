@@ -4,7 +4,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { Invoice, Client } from '../../types/index'
-import axios from 'axios';
+import api from '../../utils/api';
 import { Search, Filter, Upload, Download, Plus, Calendar, DollarSign, User, FileText, X, SlidersHorizontal, ChevronDown, AlertCircle, Edit3, Trash2 } from 'lucide-react';
 
 interface NewInvoice {
@@ -72,7 +72,7 @@ export const Invoices: React.FC = () => {
   // Fetch invoices and clients
   const fetchInvoices = async () => {
     try {
-      const response = await axios.get('/api/invoices', {
+      const response = await api.get('/invoices', {
         headers: getAuthHeaders()
       });
       setInvoices(response.data || []);
@@ -84,7 +84,7 @@ export const Invoices: React.FC = () => {
 
   const fetchClients = async () => {
     try {
-      const response = await axios.get('/api/clients', {
+      const response = await api.get('/clients', {
         headers: getAuthHeaders()
       });
       setClients(response.data || []);
@@ -254,7 +254,7 @@ export const Invoices: React.FC = () => {
     setError(null);
 
     try {
-      await axios.post('/api/invoices', newInvoice, {
+      await api.post('/invoices', newInvoice, {
         headers: getAuthHeaders()
       });
       
@@ -306,7 +306,7 @@ export const Invoices: React.FC = () => {
     setError(null);
 
     try {
-      await axios.put(`/api/invoices/${editingInvoice.id}`, {
+      await api.put(`/invoices/${editingInvoice.id}`, {
         client_id: editingInvoice.client_id,
         invoice_date: editingInvoice.invoice_date,
         amount: editingInvoice.amount,
@@ -350,7 +350,7 @@ export const Invoices: React.FC = () => {
     }
 
     try {
-      await axios.delete(`/api/invoices/${invoiceId}`, {
+      await api.delete(`/invoices/${invoiceId}`, {
         headers: getAuthHeaders()
       });
       

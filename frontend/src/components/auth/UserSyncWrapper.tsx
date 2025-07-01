@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { Loader, Zap } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api';
 
 interface UserSyncWrapperProps {
   children: React.ReactNode;
@@ -25,7 +25,7 @@ export const UserSyncWrapper: React.FC<UserSyncWrapperProps> = ({ children }) =>
         setError(null);
 
         // Sync user with our backend
-        const response = await axios.post('/api/auth/sync-user', {
+        const response = await api.post('/auth/sync-user', {
           clerk_id: user.id,
           email: user.primaryEmailAddress?.emailAddress || user.emailAddresses[0]?.emailAddress,
           display_name: user.fullName || user.firstName || 'User',

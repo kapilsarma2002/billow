@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { Card } from '../ui/Card';
 import { TrendingUp, TrendingDown, DollarSign, Users, Clock, CheckCircle } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api';
 
 interface KPIData {
   total_invoiced: number;
@@ -71,7 +71,7 @@ export const KPICards: React.FC = () => {
     const fetchData = async () => {
       try {
         // Fetch KPI data (all amounts already in USD from backend)
-        const kpiResponse = await axios.get('/api/dashboard/kpi', {
+        const kpiResponse = await api.get('/dashboard/kpi', {
           headers: getAuthHeaders()
         });
         setKpiData(kpiResponse.data);

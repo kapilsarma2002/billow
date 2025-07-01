@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { Card } from '../ui/Card';
-import axios from 'axios';
+import api from '../../utils/api';
 
 interface TopClientData {
   name: string;
@@ -27,7 +27,7 @@ export const TopClientsChart: React.FC = () => {
     const fetchData = async () => {
       try {
         // Fetch top clients data (already converted to USD on backend)
-        const clientsResponse = await axios.get('/api/dashboard/top-clients', {
+        const clientsResponse = await api.get('/dashboard/top-clients', {
           headers: getAuthHeaders()
         });
         setTopClientsData(clientsResponse.data || []);
